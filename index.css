@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --dark-bg: #121212;
+  --dark-card: #1E1E1E;
+  --dark-border: #333333;
+  --light-text: #EAEAEA;
+  --medium-text: #A0A0A0;
+  --primary: #357ABD;
+}
+
+body {
+  background-color: var(--dark-bg);
+  font-family: 'Inter', sans-serif;
+  color: var(--light-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--dark-card);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--dark-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Styles for markdown rendering in AI responses */
+.prose-invert {
+    --tw-prose-body: var(--light-text);
+    --tw-prose-headings: var(--light-text);
+    --tw-prose-lead: var(--medium-text);
+    --tw-prose-links: var(--primary);
+    --tw-prose-bold: var(--light-text);
+    --tw-prose-counters: var(--medium-text);
+    --tw-prose-bullets: var(--dark-border);
+    --tw-prose-hr: var(--dark-border);
+    --tw-prose-quotes: var(--light-text);
+    --tw-prose-quote-borders: var(--dark-border);
+    --tw-prose-captions: var(--medium-text);
+    --tw-prose-code: var(--light-text);
+    --tw-prose-pre-code: #d1d5db;
+    --tw-prose-pre-bg: #1f2937;
+    --tw-prose-th-borders: var(--dark-border);
+    --tw-prose-td-borders: var(--dark-border);
+}
