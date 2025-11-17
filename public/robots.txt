@@ -1,0 +1,33 @@
+# Auto Inspection Pro - Robots.txt
+User-agent: *
+Allow: /
+Allow: /leads
+Allow: /affiliate
+
+# Sitemaps
+Sitemap: https://autoinspectionpro.com/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Block admin and internal pages
+Disallow: /app/
+Disallow: /admin/
+Disallow: /api/
+
+# Allow search engines to index images
+User-agent: Googlebot-Image
+Allow: /
+
+# Allow all major search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
