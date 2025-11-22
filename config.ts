@@ -150,18 +150,19 @@ export const CONFIG: Config = {
         },
       },
       individual: {
-        name: 'Unlimited Monthly',
-        monthlyPrice: 79.99,
-        yearlyPrice: 799, // Save $160 (~17% off)
+        name: 'Unlimited Premium',
+        monthlyPrice: 399,
+        yearlyPrice: 3999, // Save $789 (~17% off)
         interval: 'monthly',
         features: [
           'Unlimited Inspections (All Vehicle Types)',
           'Full AI Diagnostic Reports',
           'Vehicle History Integration',
           'AI Assistant Chat (Unlimited)',
-          'Email Support',
+          'Priority Support',
           'PDF & Print Reports',
           'Mobile App Access',
+          'Smart Inspection Guidance',
         ],
         limits: {
           inspectionsPerMonth: -1, // unlimited
@@ -170,15 +171,15 @@ export const CONFIG: Config = {
           teamMembers: 1,
           apiCallsPerDay: 0,
         },
-        recommended: true,
+        recommended: false,
       },
       professional: {
         name: 'Professional',
-        monthlyPrice: 299,
-        yearlyPrice: 2999, // Save $590
+        monthlyPrice: 899,
+        yearlyPrice: 8999, // Save $1,789
         interval: 'monthly',
         features: [
-          'Everything in Unlimited',
+          'Everything in Unlimited Premium',
           'Priority AI Processing (2x Faster)',
           'White-Label Reports (Remove Branding)',
           'API Access (100 calls/day)',
@@ -187,6 +188,7 @@ export const CONFIG: Config = {
           'Phone Support',
           'Team Accounts (up to 5 users)',
           'Export to Excel/CRM',
+          'Dedicated Account Manager',
         ],
         limits: {
           inspectionsPerMonth: -1,
@@ -248,36 +250,41 @@ export const CONFIG: Config = {
       },
     },
 
-    // Per-Report Pricing (À La Carte)
-    // Competitive vs Lemon Squad ($169-199) and traditional mechanics ($150-300)
+    // Per-Report Pricing (À La Carte) - PREMIUM POSITIONING
+    // Priced ~5% below Lemon Squad ($169-199) but offering MORE value
+    // AI-powered + instant + comprehensive + includes history & diagnostics
     reports: {
-      'Motorcycle': { price: 24.99 },
-      'Standard Car/SUV': { price: 39.99 },
-      'Electric Vehicle (EV)': { price: 49.99 },
-      'Classic/Collector Car': { price: 54.99 },
-      'Recreational Vehicle (RV)': { price: 59.99 },
-      'Commercial Truck': { price: 79.99 },
+      'Motorcycle': { price: 129.99 },              // vs Lemon Squad ~$149
+      'Standard Car/SUV': { price: 159.99 },        // vs Lemon Squad $169 (5% less)
+      'Electric Vehicle (EV)': { price: 179.99 },   // vs Lemon Squad $189 (5% less)
+      'Classic/Collector Car': { price: 189.99 },   // vs Lemon Squad $199 (5% less)
+      'Recreational Vehicle (RV)': { price: 229.99 },     // vs Lemon Squad $249 (8% less)
+      'Commercial Truck': { price: 249.99 },        // vs Lemon Squad $269 (7% less)
     },
 
-    // Inspection Bundles (Better Value)
+    // Inspection Bundles (Volume Discount)
+    // "5 for the price of 4" premium approach
     bundles: {
-      '5-Pack': {
-        price: 149.99,  // $30 per inspection - "5 inspections for less than 1 Lemon Squad!"
+      '5-Pack Standard': {
+        price: 639.99,   // ~$128 per inspection (20% savings vs $159.99 each)
         inspections: 5,
-        savings: 49.96,  // vs buying 5 individual at $39.99 each
+        savings: 159.96, // vs buying 5 individual at $159.99
         validityDays: 365,
+        description: 'Perfect for families shopping for multiple vehicles',
       },
-      '10-Pack': {
-        price: 249.99,  // $25 per inspection
+      '10-Pack Professional': {
+        price: 1199.99,  // $120 per inspection (25% savings)
         inspections: 10,
-        savings: 149.91, // vs buying 10 individual at $39.99 each
+        savings: 399.91, // vs buying 10 individual at $159.99
         validityDays: 365,
+        description: 'For car flippers and small dealers',
       },
       '20-Pack Commercial': {
-        price: 999.99,  // $50 per inspection (for dealers/flippers)
+        price: 1999.99,  // $100 per inspection (37% savings)
         inspections: 20,
-        savings: 599.81,
+        savings: 1199.81, // vs buying 20 individual at $159.99
         validityDays: 365,
+        description: 'Volume pricing for dealerships',
       },
     },
 
