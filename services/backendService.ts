@@ -1,21 +1,38 @@
 import { CompletedReport } from '../types';
+import { supabaseService } from './supabaseService';
 
-// This is a mock backend service. In a real application, this would
-// make HTTP requests to a server.
+// Backend service now uses Supabase for data persistence
+// Falls back to offline storage when Supabase is unavailable
 
 export const backendService = {
-  async saveReport(report: CompletedReport): Promise<{ success: true; reportId: string }> {
-    console.log('Saving report to backend:', report);
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return { success: true, reportId: report.id };
+  async saveReport(report: CompletedReport, userId?: string): Promise<{ success: true; reportId: string }> {
+    if (!userId) {
+      console.warn('No userId provided, falling back to offline storage');
+      const { offlineService } = await import('./offlineService');
+      offlineService.saveReport(report);
+      return { success: true, reportId: report.id };
+    }
+
+    const result = await supabaseService.reports.saveReport(report, userId);
+    return { success: true, reportId: result.reportId };
   },
 
-  async getReports(): Promise<CompletedReport[]> {
-    console.log('Fetching reports from backend');
-    await new Promise(resolve => setTimeout(resolve, 800));
-    // In a real app, you would fetch this from an API.
-    // For now, it returns an empty array. The app uses mock data.
-    return [];
+  async getReports(userId?: string): Promise<CompletedReport[]> {
+    if (!userId) {
+      console.warn('No userId provided, falling back to offline storage');
+      const { offlineService } = await import('./offlineService');
+      return offlineService.getReports();
+    }
+
+    return supabaseService.reports.getReports(userId);
+  },
+
+  async deleteReport(reportId: string, userId?: string): Promise<boolean> {
+    if (!userId) {
+      console.warn('No userId provided, cannot delete from Supabase');
+      return false;
+    }
+
+    return supabaseService.reports.deleteReport(reportId, userId);
   },
 };
