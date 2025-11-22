@@ -13,13 +13,6 @@ interface ReportPricing {
   [key: string]: { price: number };
 }
 
-interface InspectionBundle {
-  price: number;
-  inspections: number;
-  savings: number;
-  validityDays: number;
-}
-
 interface Config {
   BRANDING: BrandingConfig;
   AI: {
@@ -31,9 +24,6 @@ interface Config {
       [key in SubscriptionTier]: PricingPlan;
     };
     reports: ReportPricing;
-    bundles: {
-      [key: string]: InspectionBundle;
-    };
     operator: {
       setupFee: number;
       monthlyPlatformFee: number;
@@ -250,42 +240,16 @@ export const CONFIG: Config = {
       },
     },
 
-    // Per-Report Pricing (À La Carte) - PREMIUM POSITIONING
-    // Priced ~5% below Lemon Squad ($169-199) but offering MORE value
-    // AI-powered + instant + comprehensive + includes history & diagnostics
+    // Professional Inspection Pricing - ONE INSPECTION PER PRICE
+    // Mirrors Lemon Squad pricing structure (~5% less) with MORE comprehensive service
+    // Each inspection includes: AI analysis + instant results + vehicle history + OBD diagnostics + AI assistant
     reports: {
-      'Motorcycle': { price: 129.99 },              // vs Lemon Squad ~$149
-      'Standard Car/SUV': { price: 159.99 },        // vs Lemon Squad $169 (5% less)
-      'Electric Vehicle (EV)': { price: 179.99 },   // vs Lemon Squad $189 (5% less)
-      'Classic/Collector Car': { price: 189.99 },   // vs Lemon Squad $199 (5% less)
-      'Recreational Vehicle (RV)': { price: 229.99 },     // vs Lemon Squad $249 (8% less)
-      'Commercial Truck': { price: 249.99 },        // vs Lemon Squad $269 (7% less)
-    },
-
-    // Inspection Bundles (Volume Discount)
-    // "5 for the price of 4" premium approach
-    bundles: {
-      '5-Pack Standard': {
-        price: 639.99,   // ~$128 per inspection (20% savings vs $159.99 each)
-        inspections: 5,
-        savings: 159.96, // vs buying 5 individual at $159.99
-        validityDays: 365,
-        description: 'Perfect for families shopping for multiple vehicles',
-      },
-      '10-Pack Professional': {
-        price: 1199.99,  // $120 per inspection (25% savings)
-        inspections: 10,
-        savings: 399.91, // vs buying 10 individual at $159.99
-        validityDays: 365,
-        description: 'For car flippers and small dealers',
-      },
-      '20-Pack Commercial': {
-        price: 1999.99,  // $100 per inspection (37% savings)
-        inspections: 20,
-        savings: 1199.81, // vs buying 20 individual at $159.99
-        validityDays: 365,
-        description: 'Volume pricing for dealerships',
-      },
+      'Motorcycle': { price: 129.99 },              // Lemon Squad equivalent: ~$149
+      'Standard Car/SUV': { price: 159.99 },        // Lemon Squad: $169
+      'Electric Vehicle (EV)': { price: 179.99 },   // Lemon Squad: $189
+      'Classic/Collector Car': { price: 189.99 },   // Lemon Squad: $199
+      'Recreational Vehicle (RV)': { price: 229.99 },     // Lemon Squad: $249
+      'Commercial Truck': { price: 249.99 },        // Lemon Squad: $269
     },
 
     operator: {
