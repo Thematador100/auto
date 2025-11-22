@@ -241,15 +241,17 @@ export const CONFIG: Config = {
     },
 
     // Professional Inspection Pricing - ONE INSPECTION PER PRICE
-    // Mirrors Lemon Squad pricing structure (~5% less) with MORE comprehensive service
-    // Each inspection includes: AI analysis + instant results + vehicle history + OBD diagnostics + AI assistant
+    // PREMIUM POSITIONING: Match Lemon Squad (~2-5% less MAX) with SUPERIOR service
+    // Al Ries: Position as premium category leader | Dan Kennedy: Price = Quality signal
+    // Each inspection includes: AI analysis + instant results + vehicle history + OBD diagnostics + AI assistant + guided mode
+    // Lemon Squad 2025 actual pricing: Standard $220, Motorcycle $210, Classic $330, RV $449, Commercial $365
     reports: {
-      'Motorcycle': { price: 129.99 },              // Lemon Squad equivalent: ~$149
-      'Standard Car/SUV': { price: 159.99 },        // Lemon Squad: $169
-      'Electric Vehicle (EV)': { price: 179.99 },   // Lemon Squad: $189
-      'Classic/Collector Car': { price: 189.99 },   // Lemon Squad: $199
-      'Recreational Vehicle (RV)': { price: 229.99 },     // Lemon Squad: $249
-      'Commercial Truck': { price: 249.99 },        // Lemon Squad: $269
+      'Motorcycle': { price: 199 },                 // Lemon Squad: $210 (5% less) - AI-powered instant results
+      'Standard Car/SUV': { price: 209 },           // Lemon Squad: $220 (5% less) - includes history & diagnostics
+      'Electric Vehicle (EV)': { price: 228 },      // Lemon Squad: ~$240 (5% less) - specialized EV analysis
+      'Classic/Collector Car': { price: 314 },      // Lemon Squad: $330 (5% less) - comprehensive classic assessment
+      'Recreational Vehicle (RV)': { price: 429 },  // Lemon Squad: $449 (4.5% less) - full RV system analysis
+      'Commercial Truck': { price: 349 },           // Lemon Squad: $365 (4% less) - commercial-grade inspection
     },
 
     operator: {
