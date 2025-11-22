@@ -13,6 +13,13 @@ interface ReportPricing {
   [key: string]: { price: number };
 }
 
+interface InspectionBundle {
+  price: number;
+  inspections: number;
+  savings: number;
+  validityDays: number;
+}
+
 interface Config {
   BRANDING: BrandingConfig;
   AI: {
@@ -24,6 +31,9 @@ interface Config {
       [key in SubscriptionTier]: PricingPlan;
     };
     reports: ReportPricing;
+    bundles: {
+      [key: string]: InspectionBundle;
+    };
     operator: {
       setupFee: number;
       monthlyPlatformFee: number;
@@ -121,40 +131,37 @@ export const CONFIG: Config = {
   PRICING: {
     plans: {
       free: {
-        name: 'Free',
+        name: 'Free Trial',
         monthlyPrice: 0,
         yearlyPrice: 0,
         interval: 'monthly',
         features: [
-          '1 Basic Inspection per Month',
+          '1 Free Standard Car Inspection (One-Time)',
           'VIN Decoder',
-          'Basic AI Chat (10 messages/month)',
-          'Standard Vehicles Only',
-          'Community Support',
-          'Ads Displayed',
+          'Basic Report (No AI Analysis)',
+          'Community Support Only',
         ],
         limits: {
-          inspectionsPerMonth: 1,
-          aiCallsPerMonth: 10,
-          storageGB: 0.5,
+          inspectionsPerMonth: 0, // One-time trial, not recurring
+          aiCallsPerMonth: 0,
+          storageGB: 0.1,
           teamMembers: 1,
           apiCallsPerDay: 0,
         },
       },
       individual: {
-        name: 'Individual',
-        monthlyPrice: 89.99,
-        yearlyPrice: 799, // Save $279
+        name: 'Unlimited Monthly',
+        monthlyPrice: 79.99,
+        yearlyPrice: 799, // Save $160 (~17% off)
         interval: 'monthly',
         features: [
-          'Unlimited Inspections',
-          'All Vehicle Types',
+          'Unlimited Inspections (All Vehicle Types)',
           'Full AI Diagnostic Reports',
-          'History Report Integration',
-          'Unlimited AI Assistant',
+          'Vehicle History Integration',
+          'AI Assistant Chat (Unlimited)',
           'Email Support',
-          'PDF Reports',
-          'No Ads',
+          'PDF & Print Reports',
+          'Mobile App Access',
         ],
         limits: {
           inspectionsPerMonth: -1, // unlimited
@@ -171,11 +178,11 @@ export const CONFIG: Config = {
         yearlyPrice: 2999, // Save $590
         interval: 'monthly',
         features: [
-          'Everything in Individual',
+          'Everything in Unlimited',
           'Priority AI Processing (2x Faster)',
-          'White-Label Reports',
+          'White-Label Reports (Remove Branding)',
           'API Access (100 calls/day)',
-          'Batch Upload (50 vehicles)',
+          'Batch Upload (50 vehicles at once)',
           'Advanced Analytics Dashboard',
           'Phone Support',
           'Team Accounts (up to 5 users)',
@@ -215,15 +222,15 @@ export const CONFIG: Config = {
         },
       },
       operator: {
-        name: 'Territory Operator',
+        name: 'Territory Operator License',
         monthlyPrice: 999,
         yearlyPrice: 9999,
         interval: 'monthly',
         features: [
           'Complete White-Label Platform',
           'Exclusive Territory Rights (50-mile radius)',
-          'Custom Pricing Control',
-          'Your Own Customer Base',
+          'Set Your Own Pricing',
+          'Build Your Own Customer Base',
           'Training & Certification (2-day program)',
           'Marketing Playbook & Materials',
           'Co-Branded Option',
@@ -241,13 +248,37 @@ export const CONFIG: Config = {
       },
     },
 
+    // Per-Report Pricing (À La Carte)
+    // Competitive vs Lemon Squad ($169-199) and traditional mechanics ($150-300)
     reports: {
+      'Motorcycle': { price: 24.99 },
       'Standard Car/SUV': { price: 39.99 },
-      'Electric Vehicle (EV)': { price: 44.99 },
-      'Commercial Truck': { price: 59.99 },
-      'Recreational Vehicle (RV)': { price: 54.99 },
-      'Classic/Collector Car': { price: 49.99 },
-      'Motorcycle': { price: 29.99 },
+      'Electric Vehicle (EV)': { price: 49.99 },
+      'Classic/Collector Car': { price: 54.99 },
+      'Recreational Vehicle (RV)': { price: 59.99 },
+      'Commercial Truck': { price: 79.99 },
+    },
+
+    // Inspection Bundles (Better Value)
+    bundles: {
+      '5-Pack': {
+        price: 149.99,  // $30 per inspection - "5 inspections for less than 1 Lemon Squad!"
+        inspections: 5,
+        savings: 49.96,  // vs buying 5 individual at $39.99 each
+        validityDays: 365,
+      },
+      '10-Pack': {
+        price: 249.99,  // $25 per inspection
+        inspections: 10,
+        savings: 149.91, // vs buying 10 individual at $39.99 each
+        validityDays: 365,
+      },
+      '20-Pack Commercial': {
+        price: 999.99,  // $50 per inspection (for dealers/flippers)
+        inspections: 20,
+        savings: 599.81,
+        validityDays: 365,
+      },
     },
 
     operator: {
