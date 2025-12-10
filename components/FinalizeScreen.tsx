@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { InspectionState, CompletedReport } from '../types';
 import { getVehicleHistory } from '../services/vehicleHistoryService';
 import { getSafetyRecalls, getTheftAndSalvageRecord } from '../services/vehicleExtraDataService';
-import { generateReportSummary } from '../services/geminiService';
+import { generateReportSummary } from '../services/aiService';
 import { offlineService } from '../services/offlineService';
 import { LoadingSpinner } from './LoadingSpinner';
 
