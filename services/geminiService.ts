@@ -81,15 +81,17 @@ export const extractGroundingSources = (response: GenerateContentResponse): Grou
         return [];
     }
 
-    return groundingMetadata.groundingChunks.map((chunk: GroundingChunk) => {
-        if (chunk.web) {
-            return { uri: chunk.web.uri, title: chunk.web.title };
-        }
-        if (chunk.maps) {
-            return { uri: chunk.maps.uri, title: chunk.maps.title };
-        }
-        return null;
-    }).filter((source): source is GroundingSource => source !== null);
+    return groundingMetadata.groundingChunks
+        .map((chunk: GroundingChunk) => {
+            if (chunk.web) {
+                return { uri: chunk.web.uri, title: chunk.web.title };
+            }
+            if (chunk.maps) {
+                return { uri: chunk.maps.uri, title: chunk.maps.title };
+            }
+            return null;
+        })
+        .filter((source): source is NonNullable<typeof source> => source !== null) as GroundingSource[];
 };
 
 

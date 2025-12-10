@@ -8,7 +8,8 @@ const createInitialChecklist = (vehicleType: VehicleType): InspectionSection => 
   const template = VEHICLE_INSPECTION_TEMPLATES[vehicleType];
   const checklist: InspectionSection = {};
   for (const category in template) {
-    checklist[category] = template[category as keyof typeof template].map((item): InspectionChecklistItem => ({
+    const items = template[category as keyof typeof template];
+    checklist[category] = (items as string[]).map((item): InspectionChecklistItem => ({
       item,
       checked: false,
       notes: '',

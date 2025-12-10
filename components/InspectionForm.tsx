@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { InspectionState, InspectionPhoto } from '../types';
+import { InspectionState, InspectionPhoto, InspectionChecklistItem } from '../types';
 import { useInspectionState, VehicleType } from '../hooks/useInspectionState';
 import { VINScanner } from './VINScanner';
 import { VEHICLE_INSPECTION_TEMPLATES } from '../constants';
@@ -117,7 +117,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({ onFinalize }) =>
             />
       </div>
 
-      {Object.entries(inspectionState.checklist).map(([category, items]) => (
+      {Object.entries(inspectionState.checklist).map(([category, items]: [string, InspectionChecklistItem[]]) => (
         <div key={category} className="bg-dark-card p-6 rounded-lg border border-dark-border">
           <h2 className="text-xl font-semibold text-light-text mb-4">{category}</h2>
           <div className="space-y-6">
