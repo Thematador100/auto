@@ -1,13 +1,19 @@
 import { GoogleGenAI, GenerateContentResponse, Chat, GroundingChunk } from '@google/genai';
 import { DTCCode, GroundingSource, InspectionState } from '../types';
 
-// Guard against missing API key
-if (!process.env.GEMINI_API_KEY) {
-  throw new Error("GEMINI_API_KEY environment variable is not set.");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+// Lazy initialization to avoid errors during module load
+let ai: GoogleGenAI | null = null;
 const textModel = 'gemini-2.5-flash';
+
+const getAI = (): GoogleGenAI => {
+  if (!ai) {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY environment variable is not set.");
+    }
+    ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  }
+  return ai;
+};
 
 /**
  * Analyzes a list of Diagnostic Trouble Codes (DTCs) and provides a detailed explanation.
@@ -33,7 +39,7 @@ export const analyzeDTCCodes = async (codes: DTCCode[]): Promise<string> => {
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: textModel,
       contents: prompt,
     });
@@ -50,7 +56,7 @@ export const analyzeDTCCodes = async (codes: DTCCode[]): Promise<string> => {
  * @returns A Chat instance.
  */
 export const createChatSession = (location: { latitude: number; longitude: number } | null): Chat => {
-  return ai.chats.create({
+  return getAI().chats.create({
     model: textModel,
     config: {
       systemInstruction: 'You are a helpful automotive assistant. You can answer questions about car repair, maintenance, and help find local automotive services. Be concise and helpful.',
@@ -148,7 +154,7 @@ export const generateReportSummary = async (inspectionState: InspectionState): P
     `;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await getAI().models.generateContent({
             model: 'gemini-2.5-pro', // Use a more capable model for complex summarization
             contents: prompt,
         });
