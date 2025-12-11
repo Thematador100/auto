@@ -5,6 +5,7 @@ import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { DIYDashboard } from './components/DIYDashboard';
+import { InstallAppButton } from './components/InstallAppButton';
 import './index.css';
 
 type AppView = 'login' | 'signup' | 'app';
@@ -20,12 +21,15 @@ const App: React.FC = () => {
   // Loading state while checking for existing session
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-dark-bg text-light-text flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl text-primary mb-4">🚗</div>
-          <p className="text-lg">Loading...</p>
+      <>
+        <InstallAppButton />
+        <div className="min-h-screen bg-dark-bg text-light-text flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-4xl text-primary mb-4">🚗</div>
+            <p className="text-lg">Loading...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -33,18 +37,24 @@ const App: React.FC = () => {
   if (!user) {
     if (currentView === 'signup') {
       return (
-        <SignupPage
-          onSignup={login}
-          onNavigateToLogin={() => setCurrentView('login')}
-        />
+        <>
+          <InstallAppButton />
+          <SignupPage
+            onSignup={login}
+            onNavigateToLogin={() => setCurrentView('login')}
+          />
+        </>
       );
     }
 
     return (
-      <LoginPage
-        onLogin={login}
-        onNavigateToSignup={() => setCurrentView('signup')}
-      />
+      <>
+        <InstallAppButton />
+        <LoginPage
+          onLogin={login}
+          onNavigateToSignup={() => setCurrentView('signup')}
+        />
+      </>
     );
   }
 
@@ -52,25 +62,43 @@ const App: React.FC = () => {
 
   if (user.userType === 'admin') {
     // Admin users get the enterprise admin panel
-    return <AdminDashboard user={user} onLogout={logout} />;
+    return (
+      <>
+        <InstallAppButton />
+        <AdminDashboard user={user} onLogout={logout} />
+      </>
+    );
   }
 
   if (user.userType === 'diy') {
     // DIY users can toggle between dashboard and inspection flow
     if (showDIYInspection) {
-      return <MainApp user={user} onLogout={logout} />;
+      return (
+        <>
+          <InstallAppButton />
+          <MainApp user={user} onLogout={logout} />
+        </>
+      );
     }
     return (
-      <DIYDashboard
-        user={user}
-        onLogout={logout}
-        onStartInspection={() => setShowDIYInspection(true)}
-      />
+      <>
+        <InstallAppButton />
+        <DIYDashboard
+          user={user}
+          onLogout={logout}
+          onStartInspection={() => setShowDIYInspection(true)}
+        />
+      </>
     );
   }
 
   // Pro users get the full MainApp (professional inspector interface)
-  return <MainApp user={user} onLogout={logout} />;
+  return (
+    <>
+      <InstallAppButton />
+      <MainApp user={user} onLogout={logout} />
+    </>
+  );
 };
 
 export default App;
