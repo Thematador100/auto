@@ -1,7 +1,14 @@
 // services/featureDetector.ts
+// Note: This service requires Gemini API for vision/image analysis capabilities
+// Vision features are not available in DeepSeek fallback yet
 import { GoogleGenAI } from '@google/genai';
+import { aiProvider } from './aiProviderService';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const geminiClient = aiProvider.getGeminiClient();
+
+if (!geminiClient) {
+  console.warn('[FeatureDetector] Gemini API not configured. Vision features will not work.');
+}
 
 /**
  * A placeholder function to simulate detecting vehicle features from an image.
@@ -27,9 +34,14 @@ export const detectVehicleFeaturesFromImage = async (imageBase64: string): Promi
   };
   
   try {
-    // FIX: Updated to use `ai.models.generateContent` with the correct payload structure.
-    const response = await ai.models.generateContent({ 
-        model, 
+    if (!geminiClient) {
+      console.error('[FeatureDetector] Gemini API required for vision analysis');
+      return ['Vision analysis requires Gemini API'];
+    }
+
+    // FIX: Updated to use `geminiClient.models.generateContent` with the correct payload structure.
+    const response = await geminiClient.models.generateContent({
+        model,
         contents: { parts: [ {text: prompt}, imagePart ]}
     });
     // FIX: Access the response text directly.

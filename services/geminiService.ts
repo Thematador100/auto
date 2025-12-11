@@ -1,16 +1,16 @@
 import { GoogleGenAI, GenerateContentResponse, Chat, GroundingChunk } from '@google/genai';
 import { DTCCode, GroundingSource, InspectionState } from '../types';
+import { aiProvider } from './aiProviderService';
 
-// Guard against missing API key
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set.");
+// Check if any AI provider is configured
+if (!aiProvider.hasAnyProvider()) {
+  console.warn("⚠️ No AI providers configured. Please set at least one API key in .env.local");
+  console.warn("Available providers:", aiProvider.getAvailableProviders());
 }
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-const textModel = 'gemini-2.5-flash';
 
 /**
  * Analyzes a list of Diagnostic Trouble Codes (DTCs) and provides a detailed explanation.
+ * Uses multi-provider service with automatic fallback: Gemini -> DeepSeek -> OpenAI
  * @param codes An array of DTC codes.
  * @returns A formatted string with analysis and repair suggestions.
  */
@@ -26,32 +26,38 @@ export const analyzeDTCCodes = async (codes: DTCCode[]): Promise<string> => {
     3.  A list of the most likely causes, ordered from most probable to least probable.
     4.  A step-by-step diagnostic and repair plan for a qualified mechanic.
 
-    If multiple codes are present that are likely related (e.g., a system lean code with multiple cylinder misfires), 
+    If multiple codes are present that are likely related (e.g., a system lean code with multiple cylinder misfires),
     explain the relationship and suggest a prioritized diagnostic approach.
 
     Format the response in clear, easy-to-read Markdown. Use headings for each code and bold text for emphasis.
   `;
 
   try {
-    const response = await ai.models.generateContent({
-      model: textModel,
-      contents: prompt,
-    });
-    return response.text;
+    // Use multi-provider service with automatic fallback
+    console.log('[DTC Analysis] Using multi-provider AI service (Gemini -> DeepSeek -> OpenAI)');
+    const result = await aiProvider.generateText(prompt, 'flash');
+    return result;
   } catch (error) {
     console.error("Error analyzing DTC codes:", error);
-    throw new Error("Failed to analyze DTC codes. The AI service may be temporarily unavailable.");
+    throw new Error("Failed to analyze DTC codes. All AI providers failed. Please check your API keys in .env.local.");
   }
 };
 
 /**
  * Creates a new chat session with Google Search and Google Maps grounding enabled.
+ * Note: This feature requires Gemini API (grounding features are Gemini-specific)
  * @param location Optional user location for Maps grounding.
  * @returns A Chat instance.
  */
 export const createChatSession = (location: { latitude: number; longitude: number } | null): Chat => {
-  return ai.chats.create({
-    model: textModel,
+  const geminiClient = aiProvider.getGeminiClient();
+
+  if (!geminiClient) {
+    throw new Error("Chat requires Gemini API with grounding features. Please set GEMINI_API_KEY in .env.local");
+  }
+
+  return geminiClient.chats.create({
+    model: 'gemini-2.5-flash',
     config: {
       systemInstruction: 'You are a helpful automotive assistant. You can answer questions about car repair, maintenance, and help find local automotive services. Be concise and helpful.',
       tools: [{ googleSearch: {} }, { googleMaps: {} }],
@@ -89,6 +95,7 @@ export const extractGroundingSources = (response: GenerateContentResponse): Grou
 
 /**
  * Generates a comprehensive vehicle inspection report summary from inspection state.
+ * Uses multi-provider service with automatic fallback: Gemini -> DeepSeek -> OpenAI
  * @param inspectionState The collected data from the inspection form.
  * @returns A string containing the formatted report summary.
  */
@@ -128,7 +135,7 @@ export const generateReportSummary = async (inspectionState: InspectionState): P
 
       **Instructions:**
       Generate a report with the following structure in Markdown format:
-      
+
       ## Vehicle Inspection Summary
 
       ### 1. Overall Condition Assessment
@@ -140,7 +147,7 @@ export const generateReportSummary = async (inspectionState: InspectionState): P
       This should be a concise summary of the problems found. If no major issues were found, state that.
       - Example: Front brake pads are worn and need replacement.
       - Example: Minor oil leak observed from the valve cover gasket.
-      
+
       ### 3. Recommendations
       Create a prioritized, bulleted list of recommended actions.
       Categorize them as "Immediate Attention Required," "Recommended Maintenance," and "Future Considerations."
@@ -148,13 +155,12 @@ export const generateReportSummary = async (inspectionState: InspectionState): P
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro', // Use a more capable model for complex summarization
-            contents: prompt,
-        });
-        return response.text;
+        // Use multi-provider service with automatic fallback (prefer pro model for better quality)
+        console.log('[Report Generation] Using multi-provider AI service (Gemini Pro -> DeepSeek -> OpenAI)');
+        const result = await aiProvider.generateText(prompt, 'pro');
+        return result;
     } catch (error) {
         console.error("Error generating report summary:", error);
-        throw new Error("Failed to generate report summary. The AI service may be temporarily unavailable.");
+        throw new Error("Failed to generate report summary. All AI providers failed. Please check your API keys in .env.local.");
     }
 };
