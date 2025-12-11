@@ -4,6 +4,7 @@ import { MainApp } from './components/MainApp';
 import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { AdminDashboard } from './components/AdminDashboard';
+import { DIYDashboard } from './components/DIYDashboard';
 import './index.css';
 
 type AppView = 'login' | 'signup' | 'app';
@@ -14,6 +15,7 @@ type AppView = 'login' | 'signup' | 'app';
 const App: React.FC = () => {
   const { user, login, logout, isLoading } = useAuth();
   const [currentView, setCurrentView] = useState<AppView>('login');
+  const [showDIYInspection, setShowDIYInspection] = useState(false);
 
   // Loading state while checking for existing session
   if (isLoading) {
@@ -54,9 +56,17 @@ const App: React.FC = () => {
   }
 
   if (user.userType === 'diy') {
-    // TODO: Route to DIYDashboard (Phase 2C task 5)
-    // For now, DIY users also get MainApp
-    return <MainApp user={user} onLogout={logout} />;
+    // DIY users can toggle between dashboard and inspection flow
+    if (showDIYInspection) {
+      return <MainApp user={user} onLogout={logout} />;
+    }
+    return (
+      <DIYDashboard
+        user={user}
+        onLogout={logout}
+        onStartInspection={() => setShowDIYInspection(true)}
+      />
+    );
   }
 
   // Pro users get the full MainApp (professional inspector interface)
