@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { MainApp } from './components/MainApp';
 import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
+import { AdminDashboard } from './components/AdminDashboard';
 import './index.css';
 
 type AppView = 'login' | 'signup' | 'app';
@@ -46,20 +47,19 @@ const App: React.FC = () => {
   }
 
   // User is logged in - route based on user type
-  // For now, all users go to MainApp (Pro inspector interface)
-  // In future tasks, we'll create separate dashboards for admin and DIY users
 
   if (user.userType === 'admin') {
-    // TODO: Route to AdminDashboard (Phase 2C task 4)
-    return <MainApp user={user} onLogout={logout} />;
+    // Admin users get the enterprise admin panel
+    return <AdminDashboard user={user} onLogout={logout} />;
   }
 
   if (user.userType === 'diy') {
     // TODO: Route to DIYDashboard (Phase 2C task 5)
+    // For now, DIY users also get MainApp
     return <MainApp user={user} onLogout={logout} />;
   }
 
-  // Pro users get the full MainApp
+  // Pro users get the full MainApp (professional inspector interface)
   return <MainApp user={user} onLogout={logout} />;
 };
 
