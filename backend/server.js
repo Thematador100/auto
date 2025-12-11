@@ -8,6 +8,7 @@ import inspectionRoutes from './routes/inspections.js';
 import photoRoutes from './routes/photos.js';
 import aiRoutes from './routes/ai.js';
 import reportRoutes from './routes/reports.js';
+import fraudRoutes from './routes/fraud.js';
 
 dotenv.config();
 
@@ -47,6 +48,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/inspections', inspectionRoutes);
 app.use('/api/photos', photoRoutes);
 app.use('/api/reports', reportRoutes); // Report routes: /api/reports/email
+app.use('/api/fraud', fraudRoutes); // Fraud detection: /api/fraud/analyze-odometer, /api/fraud/analyze-flood
 app.use('/api', aiRoutes); // AI routes: /api/analyze-dtc, /api/generate-report, /api/detect-features
 
 // Error handling middleware
