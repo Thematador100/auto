@@ -71,7 +71,7 @@ Format the response in clear, easy-to-read Markdown. Use headings for each code 
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
       result = data.choices[0]?.message?.content || '';
 
       // Log the request
@@ -79,12 +79,12 @@ Format the response in clear, easy-to-read Markdown. Use headings for each code 
         userId,
         provider,
         requestType: 'dtc_analysis',
-        tokensUsed: data.usage?.total_tokens,
+        tokensUsed: data.usage?.total_tokens || 0,
       });
     } else {
       // Gemini implementation
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey });
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const ai = new GoogleGenerativeAI(apiKey);
 
       const codeList = codes.map(c => c.code).join(', ');
       const prompt = `
@@ -100,12 +100,10 @@ For each code, provide:
 Format the response in clear, easy-to-read Markdown. Use headings for each code and bold text for emphasis.
       `;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
+      const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+      const response = await model.generateContent(prompt);
 
-      result = response.text;
+      result = response.response.text();
 
       // Log the request
       await db.insert(aiRequestLogs).values({
@@ -204,25 +202,23 @@ Categorize them as "Immediate Attention Required," "Recommended Maintenance," an
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json() as any;
       result = data.choices[0]?.message?.content || '';
 
       await db.insert(aiRequestLogs).values({
         userId,
         provider,
         requestType: 'report_summary',
-        tokensUsed: data.usage?.total_tokens,
+        tokensUsed: data.usage?.total_tokens || 0,
       });
     } else {
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey });
+      const { GoogleGenerativeAI } = await import('@google/generative-ai');
+      const ai = new GoogleGenerativeAI(apiKey);
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents: prompt,
-      });
+      const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+      const response = await model.generateContent(prompt);
 
-      result = response.text;
+      result = response.response.text();
 
       await db.insert(aiRequestLogs).values({
         userId,
