@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: ai-auto-pro-backend
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: PREFERRED_AI_PROVIDER
+        value: deepseek
+    healthCheckPath: /health
+    autoDeploy: true
