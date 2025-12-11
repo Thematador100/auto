@@ -32,13 +32,12 @@ async function createTestAdmin() {
         email,
         password_hash,
         user_type,
-        company_name,
         plan,
         inspection_credits,
         subscription_status,
         created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      [email, passwordHash, 'admin', 'Platform Admin', 'admin', -1, 'active']
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      [email, passwordHash, 'admin', 'admin', -1, 'active']
     );
 
     console.log('✅ Test admin created successfully!');
@@ -57,13 +56,12 @@ async function createTestAdmin() {
         email,
         password_hash,
         user_type,
-        company_name,
         plan,
         inspection_credits,
         subscription_status,
         created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      [proEmail, proPasswordHash, 'pro', 'Test Inspections Inc', 'pro-basic', -1, 'active']
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      [proEmail, proPasswordHash, 'pro', 'pro-basic', -1, 'active']
     );
 
     console.log('\n✅ Test Pro inspector created!');
@@ -80,13 +78,12 @@ async function createTestAdmin() {
         email,
         password_hash,
         user_type,
-        company_name,
         plan,
         inspection_credits,
         subscription_status,
         created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      [diyEmail, diyPasswordHash, 'diy', 'John Smith', 'diy-5pack', 5, 'pay_per_use']
+      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+      [diyEmail, diyPasswordHash, 'diy', 'diy-5pack', 5, 'pay_per_use']
     );
 
     console.log('\n✅ Test DIY buyer created!');
