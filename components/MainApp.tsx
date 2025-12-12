@@ -60,18 +60,30 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         return <InspectionForm onFinalize={handleFinalize} />;
       case 'Finalize':
         if (!inspectionState) {
-          // Fallback if state is lost
-          setView('Dashboard');
-          setActiveTab('Dashboard');
-          return null;
+          // Fallback if state is lost - redirect to dashboard
+          setTimeout(() => {
+            setView('Dashboard');
+            setActiveTab('Dashboard');
+          }, 0);
+          return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <p className="text-medium-text">Redirecting to dashboard...</p>
+            </div>
+          );
         }
         return <FinalizeScreen inspectionState={inspectionState} onReportComplete={handleReportComplete} />;
       case 'Report':
         if (!completedReport) {
-          // Fallback if state is lost
-          setView('Dashboard');
-          setActiveTab('Dashboard');
-          return null;
+          // Fallback if state is lost - redirect to dashboard
+          setTimeout(() => {
+            setView('Dashboard');
+            setActiveTab('Dashboard');
+          }, 0);
+          return (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <p className="text-medium-text">Redirecting to dashboard...</p>
+            </div>
+          );
         }
         return <ReportView report={completedReport} />;
       case 'Diagnostics':
