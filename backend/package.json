@@ -10,6 +10,7 @@
     "migrate": "node utils/migrate.js",
     "migrate:phase2": "node utils/migrate-phase2.js",
     "migrate:phase2b": "node utils/migrate-phase2b.js",
+    "migrate:licenses": "node utils/migrate-license-management.js",
     "seed:issues": "node utils/seed-common-issues.js"
   },
   "dependencies": {

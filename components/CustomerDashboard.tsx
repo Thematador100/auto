@@ -25,6 +25,17 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({ user, onNe
 
   return (
     <div className="space-y-6">
+      {/* EV-Ready Badge */}
+      <div className="bg-gradient-to-r from-green-600 to-blue-600 p-4 rounded-lg border border-green-500">
+        <div className="flex items-center gap-3">
+          <div className="text-3xl">⚡</div>
+          <div>
+            <h3 className="text-white font-bold text-lg">✅ EV-Ready Platform</h3>
+            <p className="text-green-100 text-sm">Now supports electric vehicle inspections! Full OBD2 diagnostics for EVs, battery health analysis, and EV-specific fraud detection.</p>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-dark-card p-6 rounded-lg border border-dark-border flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-light-text">Welcome, {user.email}</h1>
