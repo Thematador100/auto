@@ -8,6 +8,9 @@ export const OBDScanner: React.FC = () => {
     const [analysis, setAnalysis] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isConnecting, setIsConnecting] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
+    const [bluetoothDevice, setBluetoothDevice] = useState<BluetoothDevice | null>(null);
 
     const handleCodeChange = (index: number, value: string) => {
         const newCodes = [...codes];
@@ -22,6 +25,53 @@ export const OBDScanner: React.FC = () => {
     const removeCodeField = (index: number) => {
         const newCodes = codes.filter((_, i) => i !== index);
         setCodes(newCodes);
+    };
+
+    const handleConnectBluetooth = async () => {
+        // Check if Web Bluetooth is supported
+        if (!navigator.bluetooth) {
+            setError('Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Opera on desktop/Android.');
+            return;
+        }
+
+        setIsConnecting(true);
+        setError(null);
+
+        try {
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [
+                    { namePrefix: 'OBDLink' },
+                    { namePrefix: 'Veepeak' },
+                    { namePrefix: 'V011' },
+                    { namePrefix: 'OBDII' },
+                    { namePrefix: 'OBD2' },
+                ],
+                optionalServices: ['generic_access']
+            });
+
+            setBluetoothDevice(device);
+            setIsConnected(true);
+            setError(null);
+
+            // Note: Full OBD-II communication requires specific services and characteristics
+            // This is a simplified implementation showing connection capability
+            alert(`Connected to ${device.name || 'OBD Scanner'}!\n\nNote: Automatic code reading requires the scanner's specific Bluetooth services. For now, you can use your scanner's app to read codes, then enter them here for AI analysis.`);
+
+        } catch (err) {
+            console.error('Bluetooth connection failed:', err);
+            setError(err instanceof Error ? err.message : 'Failed to connect to OBD scanner');
+            setIsConnected(false);
+        } finally {
+            setIsConnecting(false);
+        }
+    };
+
+    const handleDisconnect = () => {
+        if (bluetoothDevice?.gatt?.connected) {
+            bluetoothDevice.gatt.disconnect();
+        }
+        setBluetoothDevice(null);
+        setIsConnected(false);
     };
 
     const handleAnalyze = async () => {
@@ -60,7 +110,40 @@ export const OBDScanner: React.FC = () => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-dark-card p-6 rounded-lg border border-dark-border space-y-4 flex flex-col">
-                <h3 className="text-lg font-semibold text-light-text">Enter DTC Codes</h3>
+                <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-light-text">Enter DTC Codes</h3>
+                    {!isConnected ? (
+                        <button
+                            onClick={handleConnectBluetooth}
+                            disabled={isConnecting}
+                            className="bg-dark-bg hover:bg-dark-border text-primary font-semibold py-1.5 px-3 rounded-lg border border-primary transition-colors disabled:opacity-50 flex items-center gap-2 text-sm"
+                        >
+                            {isConnecting ? (
+                                <>
+                                    <LoadingSpinner />
+                                    Connecting...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                                    </svg>
+                                    Connect OBD Scanner
+                                </>
+                            )}
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleDisconnect}
+                            className="bg-green-900/30 hover:bg-red-900/30 text-green-400 hover:text-red-400 font-semibold py-1.5 px-3 rounded-lg border border-green-400 hover:border-red-400 transition-colors flex items-center gap-2 text-sm"
+                        >
+                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                <circle cx="10" cy="10" r="3" />
+                            </svg>
+                            Connected - Disconnect
+                        </button>
+                    )}
+                </div>
                 <div className="flex-grow space-y-2">
                     {codes.map((code, index) => (
                         <div key={index} className="flex items-center gap-2">
