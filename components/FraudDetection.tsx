@@ -57,8 +57,10 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
 
     setOdometerAnalyzing(true);
 
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/fraud/analyze-odometer`, {
+      const response = await fetch(`${BACKEND_URL}/api/fraud/analyze-odometer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,8 +93,10 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
   const analyzeFloodDamage = async () => {
     setFloodAnalyzing(true);
 
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/fraud/analyze-flood`, {
+      const response = await fetch(`${BACKEND_URL}/api/fraud/analyze-flood`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

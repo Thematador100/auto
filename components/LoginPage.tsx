@@ -12,13 +12,15 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignu
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
 
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/login`, {
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -191,9 +191,11 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
               const name = formData.get('name') as string;
               const message = formData.get('message') as string;
 
+              const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+
               try {
                 // Call backend API to send email
-                const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/reports/email`, {
+                const response = await fetch(`${BACKEND_URL}/api/reports/email`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',

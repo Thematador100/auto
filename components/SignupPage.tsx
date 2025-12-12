@@ -47,8 +47,10 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLo
 
     setIsLoading(true);
 
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/auth/signup`, {
+      const response = await fetch(`${BACKEND_URL}/api/auth/signup`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
