@@ -728,4 +728,266 @@ router.post('/territories', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
+/**
+ * USER CREATION & PASSWORD MANAGEMENT
+ */
+
+/**
+ * POST /api/admin/users/create
+ * Create a new user account with password (admin only)
+ * Perfect for onboarding new licensees
+ */
+router.post('/users/create', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const {
+      email,
+      password,
+      userType = 'pro',
+      companyName,
+      phone,
+      plan = 'pro-basic',
+      // License fields
+      territory,
+      licenseType = 'independent',
+      revenueSharePercentage = 20,
+      monthlyPlatformFee = 297,
+      upfrontFeePaid = 0,
+      featuresEnabled = {
+        ev_module: false,
+        advanced_fraud: true,
+        ai_reports: true,
+        lead_bot: false
+      },
+      autoActivateLicense = true
+    } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Check if user already exists
+    const existingUser = await query(
+      'SELECT id FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
+    // Hash password
+    const bcrypt = await import('bcryptjs');
+    const passwordHash = await bcrypt.default.hash(password, 10);
+
+    // Determine initial credits and status
+    let inspectionCredits = -1; // Unlimited for pro
+    let subscriptionStatus = autoActivateLicense ? 'active' : 'trial';
+    let licenseStatus = autoActivateLicense ? 'active' : 'inactive';
+
+    // Create user with license fields
+    const result = await query(
+      `INSERT INTO users (
+        email,
+        password_hash,
+        user_type,
+        company_name,
+        phone,
+        plan,
+        inspection_credits,
+        subscription_status,
+        license_status,
+        license_type,
+        territory,
+        revenue_share_percentage,
+        monthly_platform_fee,
+        upfront_fee_paid,
+        features_enabled,
+        license_issued_at,
+        onboarding_completed,
+        created_at
+      )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, ${autoActivateLicense ? 'NOW()' : 'NULL'}, $16, NOW())
+       RETURNING id, email, user_type, company_name, plan, license_status, territory`,
+      [
+        email.toLowerCase(),
+        passwordHash,
+        userType,
+        companyName,
+        phone || null,
+        plan,
+        inspectionCredits,
+        subscriptionStatus,
+        licenseStatus,
+        licenseType,
+        territory || null,
+        revenueSharePercentage,
+        monthlyPlatformFee,
+        upfrontFeePaid,
+        JSON.stringify(featuresEnabled),
+        false // onboarding_completed
+      ]
+    );
+
+    const newUser = result.rows[0];
+
+    console.log(`[Admin] Created new ${userType} user: ${newUser.email} with license: ${licenseStatus}`);
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: newUser,
+      credentials: {
+        email: email.toLowerCase(),
+        password: password, // Return password so admin can share with new user
+        loginUrl: process.env.FRONTEND_URL || 'https://your-app.vercel.app'
+      }
+    });
+  } catch (error) {
+    console.error('[Admin] Create user error:', error);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+/**
+ * PATCH /api/admin/users/:id/password
+ * Reset/change a user's password (admin only)
+ */
+router.patch('/users/:id/password', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+
+    if (!newPassword) {
+      return res.status(400).json({ error: 'New password is required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    // Hash new password
+    const bcrypt = await import('bcryptjs');
+    const passwordHash = await bcrypt.default.hash(newPassword, 10);
+
+    // Update password
+    const result = await query(
+      `UPDATE users
+       SET password_hash = $2
+       WHERE id = $1
+       RETURNING id, email`,
+      [id, passwordHash]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`[Admin] Password reset for user: ${result.rows[0].email}`);
+
+    res.json({
+      message: 'Password updated successfully',
+      user: result.rows[0],
+      newPassword: newPassword // Return so admin can share with user
+    });
+  } catch (error) {
+    console.error('[Admin] Password reset error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+/**
+ * POST /api/admin/users/bulk-create
+ * Create multiple users at once (for batch onboarding)
+ */
+router.post('/users/bulk-create', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { users } = req.body;
+
+    if (!Array.isArray(users) || users.length === 0) {
+      return res.status(400).json({ error: 'Users array is required' });
+    }
+
+    const bcrypt = await import('bcryptjs');
+    const createdUsers = [];
+    const errors = [];
+
+    for (const userData of users) {
+      try {
+        const {
+          email,
+          password,
+          companyName,
+          territory,
+          userType = 'pro',
+          plan = 'pro-basic',
+          licenseType = 'independent',
+          revenueSharePercentage = 20,
+          monthlyPlatformFee = 297,
+          upfrontFeePaid = 0
+        } = userData;
+
+        // Validate
+        if (!email || !password) {
+          errors.push({ email, error: 'Email and password required' });
+          continue;
+        }
+
+        // Check if exists
+        const existing = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+        if (existing.rows.length > 0) {
+          errors.push({ email, error: 'Email already exists' });
+          continue;
+        }
+
+        // Hash password
+        const passwordHash = await bcrypt.default.hash(password, 10);
+
+        // Create user
+        const result = await query(
+          `INSERT INTO users (
+            email, password_hash, user_type, company_name, plan,
+            inspection_credits, subscription_status, license_status, license_type,
+            territory, revenue_share_percentage, monthly_platform_fee, upfront_fee_paid,
+            features_enabled, license_issued_at, created_at
+          )
+           VALUES ($1, $2, $3, $4, $5, -1, 'active', 'active', $6, $7, $8, $9, $10,
+                   '{"ev_module": false, "advanced_fraud": true, "ai_reports": true, "lead_bot": false}',
+                   NOW(), NOW())
+           RETURNING id, email, company_name, territory`,
+          [email.toLowerCase(), passwordHash, userType, companyName, plan, licenseType,
+           territory, revenueSharePercentage, monthlyPlatformFee, upfrontFeePaid]
+        );
+
+        createdUsers.push({
+          ...result.rows[0],
+          password: password // Include password in response
+        });
+
+      } catch (err) {
+        errors.push({ email: userData.email, error: err.message });
+      }
+    }
+
+    console.log(`[Admin] Bulk created ${createdUsers.length} users, ${errors.length} errors`);
+
+    res.json({
+      message: `Created ${createdUsers.length} users`,
+      created: createdUsers,
+      errors: errors
+    });
+  } catch (error) {
+    console.error('[Admin] Bulk create error:', error);
+    res.status(500).json({ error: 'Failed to bulk create users' });
+  }
+});
+
 export default router;
