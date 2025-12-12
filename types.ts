@@ -119,3 +119,29 @@ export interface PricingPlan {
   price: string;
   features: string[];
 }
+
+// Admin panel types
+export interface AdminUser extends User {
+  joinDate: string;
+  lastActive: string;
+  reportsCompleted: number;
+  status: 'active' | 'inactive' | 'suspended';
+}
+
+export interface SystemStats {
+  totalUsers: number;
+  activeUsers: number;
+  totalReports: number;
+  reportsThisMonth: number;
+  revenue: number;
+  revenueThisMonth: number;
+}
+
+export interface ActivityLog {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userEmail: string;
+  action: string;
+  details: string;
+}

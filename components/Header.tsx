@@ -9,7 +9,7 @@ interface HeaderProps {
   onLogout: () => void;
 }
 
-const TABS = ['Dashboard', 'Inspection', 'Diagnostics', 'Assistant'];
+const TABS = ['Dashboard', 'Inspection', 'Diagnostics', 'Assistant', 'Admin'];
 
 export const Header: React.FC<HeaderProps> = ({ user, currentTab, onTabChange, onLogout }) => {
   return (
