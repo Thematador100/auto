@@ -1,13 +1,20 @@
 import { GoogleGenAI, GenerateContentResponse, Chat, GroundingChunk } from '@google/genai';
 import { DTCCode, GroundingSource, InspectionState } from '../types';
 
-// Guard against missing API key
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set.");
-}
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Lazy initialization - only create AI instance when needed
+let ai: GoogleGenAI | null = null;
 const textModel = 'gemini-2.5-flash';
+
+const getAI = () => {
+  if (!ai) {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      throw new Error("Gemini API key is not configured. Please add GEMINI_API_KEY to your .env.local file.");
+    }
+    ai = new GoogleGenAI({ apiKey });
+  }
+  return ai;
+};
 
 /**
  * Analyzes a list of Diagnostic Trouble Codes (DTCs) and provides a detailed explanation.
@@ -33,7 +40,7 @@ export const analyzeDTCCodes = async (codes: DTCCode[]): Promise<string> => {
   `;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: textModel,
       contents: prompt,
     });
@@ -148,7 +155,7 @@ export const generateReportSummary = async (inspectionState: InspectionState): P
     `;
 
     try {
-        const response = await ai.models.generateContent({
+        const response = await getAI().models.generateContent({
             model: 'gemini-2.5-pro', // Use a more capable model for complex summarization
             contents: prompt,
         });
