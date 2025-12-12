@@ -11,9 +11,6 @@
     }
   ],
   "env": {
-    "VITE_BACKEND_URL": {
-      "description": "Backend API URL from Railway",
-      "value": "https://auto-production-3041.up.railway.app"
-    }
+    "VITE_BACKEND_URL": "https://auto-production-3041.up.railway.app"
   }
 }
