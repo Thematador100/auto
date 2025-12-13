@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { OBDScanner } from './OBDScanner';
-import { BluetoothOBDScanner } from './BluetoothOBDScanner';
+import { OBDScannerPro } from './OBDScannerPro';
 import { WiFiOBDScanner } from './WiFiOBDScanner';
 
 export const DiagnosticsTool: React.FC = () => {
@@ -9,22 +9,23 @@ export const DiagnosticsTool: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="bg-dark-card p-4 rounded-lg border border-dark-border">
-                <h2 className="text-xl font-semibold text-light-text">Diagnostic Tools</h2>
+                <h2 className="text-2xl font-semibold text-light-text">🔧 Professional Diagnostic Tools</h2>
                 <p className="text-medium-text mt-1">
-                    Scan your vehicle for diagnostic trouble codes (DTCs) using Bluetooth, WiFi OBD2 adapters (works on iPhone!), or enter codes manually.
+                    Connect your OBDLink MX+ Bluetooth scanner for professional diagnostics with EV battery health monitoring, or use WiFi (iOS) or manual entry.
                 </p>
 
                 {/* Mode Selector */}
                 <div className="flex gap-4 mt-4 flex-wrap">
                     <button
                         onClick={() => setScannerMode('bluetooth')}
-                        className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                        className={`px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2 ${
                             scannerMode === 'bluetooth'
-                                ? 'bg-primary text-white'
+                                ? 'bg-gradient-to-r from-primary to-purple-600 text-white'
                                 : 'bg-dark-bg text-medium-text hover:text-light-text'
                         }`}
                     >
-                        📱 Bluetooth Scanner
+                        <span>⚡ Pro Bluetooth</span>
+                        <span className="text-xs bg-yellow-500 text-black px-2 py-0.5 rounded-full font-bold">EV+</span>
                     </button>
                     <button
                         onClick={() => setScannerMode('wifi')}
@@ -49,7 +50,7 @@ export const DiagnosticsTool: React.FC = () => {
                 </div>
             </div>
 
-            {scannerMode === 'bluetooth' && <BluetoothOBDScanner />}
+            {scannerMode === 'bluetooth' && <OBDScannerPro />}
             {scannerMode === 'wifi' && <WiFiOBDScanner />}
             {scannerMode === 'manual' && <OBDScanner />}
 
