@@ -21,18 +21,52 @@ export const analyzeDTCCodes = async (codes: DTCCode[]): Promise<string> => {
 };
 
 /**
- * Creates a new chat session with Google Search and Google Maps grounding enabled.
- * Note: This feature requires Gemini API on the backend
- * @param location Optional user location for Maps grounding.
- * @returns A Chat instance.
- *
- * WARNING: Chat sessions with grounding cannot be proxied through REST API easily.
- * This functionality needs to be implemented on the backend with WebSocket support.
- * For now, this is a placeholder that will be implemented in a future update.
+ * Send a chat message to the AI assistant via backend
+ * Backend uses multi-provider fallback (Gemini → DeepSeek → OpenAI)
+ * Includes self-healing: returns helpful fallback response if AI fails
  */
-export const createChatSession = (location: { latitude: number; longitude: number } | null): Chat => {
-  console.warn('[GeminiService] Chat sessions require WebSocket support - not yet implemented via backend');
-  throw new Error('Chat sessions are temporarily unavailable. Backend WebSocket support coming soon.');
+export const sendChatMessage = async (
+  message: string,
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = []
+): Promise<{ response: string; fallback?: boolean }> => {
+  console.log('[GeminiService] Sending chat message through backend');
+
+  try {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+
+    const response = await fetch(`${BACKEND_URL}/api/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      body: JSON.stringify({ message, conversationHistory }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Backend responded with ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      response: data.response,
+      fallback: data.fallback || false
+    };
+  } catch (error) {
+    console.error('[GeminiService] Chat error:', error);
+    // Self-healing: return helpful fallback even if backend is down
+    return {
+      response: "I'm experiencing connection issues. Please check:\n\n1. Your internet connection\n2. That you're logged in\n3. Try refreshing the page\n\nIn the meantime, you can use the inspection tools, OBD scanner, and other features in the app.",
+      fallback: true
+    };
+  }
+};
+
+// Legacy function - kept for compatibility but deprecated
+export const createChatSession = (location: { latitude: number; longitude: number } | null): any => {
+  console.warn('[GeminiService] createChatSession is deprecated. Use sendChatMessage instead.');
+  return null;
 };
 
 /**

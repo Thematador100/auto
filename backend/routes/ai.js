@@ -170,4 +170,53 @@ Provide a concise, bulleted list of observations.`;
   }
 });
 
+/**
+ * POST /api/chat
+ * Simple chat endpoint for AI assistant
+ * Uses multi-provider fallback (Gemini → DeepSeek → OpenAI)
+ */
+router.post('/chat', authenticateToken, async (req, res) => {
+  try {
+    const { message, conversationHistory = [] } = req.body;
+
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    console.log('[AI] Chat request from user', req.user.email);
+
+    // Build conversation context
+    let prompt = 'You are a helpful automotive expert assistant. You help with vehicle maintenance, repairs, diagnostics, and finding local services.\n\nUser question: ' + message;
+
+    // Include recent conversation history for context
+    if (conversationHistory.length > 0) {
+      const recentHistory = conversationHistory.slice(-5);
+      const historyText = recentHistory
+        .map(msg => (msg.role === 'user' ? 'User' : 'Assistant') + ': ' + msg.content)
+        .join('\n');
+      prompt = 'Previous conversation:\n' + historyText + '\n\n' + prompt;
+    }
+
+    // Use AI provider with automatic fallback
+    const response = await generateText(prompt, {
+      temperature: 0.8,
+      maxTokens: 1000
+    });
+
+    res.json({
+      response,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[AI] Chat error:', error);
+
+    // Self-healing fallback - never leave user stranded
+    res.json({
+      response: "I'm having trouble connecting to my AI services right now. However, I can still help! For vehicle issues, I recommend:\n\n1. Check your owner's manual for basic troubleshooting\n2. Use OBD-II scanner for diagnostic codes\n3. Contact a certified mechanic for complex issues\n\nPlease try again in a moment, or feel free to use the inspection tools in the app.",
+      fallback: true,
+      error: error.message
+    });
+  }
+});
+
 export default router;
