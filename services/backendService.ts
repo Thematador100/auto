@@ -16,10 +16,14 @@ export const backendService = {
     console.log('[Backend] Saving report to Railway backend:', BACKEND_URL);
 
     try {
+      // Get auth token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
       const response = await fetch(`${BACKEND_URL}/api/reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify(report),
       });
@@ -44,10 +48,14 @@ export const backendService = {
     console.log('[Backend] Fetching reports from Railway backend:', BACKEND_URL);
 
     try {
+      // Get auth token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
       const response = await fetch(`${BACKEND_URL}/api/reports`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
       });
 
@@ -71,10 +79,14 @@ export const backendService = {
     console.log('[Backend] Analyzing DTC codes via Railway backend:', BACKEND_URL);
 
     try {
+      // Get auth token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
       const response = await fetch(`${BACKEND_URL}/api/analyze-dtc`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify({ codes }),
       });
@@ -100,10 +112,14 @@ export const backendService = {
     console.log('[Backend] Generating report summary via Railway backend:', BACKEND_URL);
 
     try {
+      // Get auth token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
       const response = await fetch(`${BACKEND_URL}/api/generate-report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify({ inspectionState }),
       });
@@ -129,10 +145,14 @@ export const backendService = {
     console.log('[Backend] Detecting vehicle features via Railway backend:', BACKEND_URL);
 
     try {
+      // Get auth token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
       const response = await fetch(`${BACKEND_URL}/api/detect-features`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify({ image: imageBase64 }),
       });
