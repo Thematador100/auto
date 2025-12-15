@@ -1,5 +1,7 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+// @ts-ignore - jsPDF loaded from CDN
+declare const jsPDF: any;
+// @ts-ignore - html2canvas loaded from CDN
+declare const html2canvas: any;
 import { CompletedReport } from '../types';
 
 /**
