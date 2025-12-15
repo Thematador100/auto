@@ -2,11 +2,12 @@ import { GoogleGenAI, GenerateContentResponse, Chat, GroundingChunk } from '@goo
 import { DTCCode, GroundingSource, InspectionState } from '../types';
 
 // Guard against missing API key
-if (!process.env.API_KEY) {
-  throw new Error("API_KEY environment variable is not set.");
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+if (!apiKey) {
+  throw new Error("VITE_GEMINI_API_KEY environment variable is not set. Please add it to your .env.local file.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey });
 const textModel = 'gemini-2.5-flash';
 
 /**
