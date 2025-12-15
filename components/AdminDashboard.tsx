@@ -29,7 +29,7 @@ interface UserRecord {
 interface CreateUserForm {
   email: string;
   password: string;
-  userType: 'pro' | 'diy';
+  userType: 'pro' | 'diy' | 'admin';
   companyName: string;
   phone: string;
   plan: string;
@@ -44,7 +44,8 @@ interface CreateUserForm {
  * - Never leaves admin stranded
  */
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers' | 'staff' | 'sales' | 'inspector'>('overview');
+  const [showInspectorTool, setShowInspectorTool] = useState(false);
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -265,7 +266,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'users') {
+    if (activeTab === 'customers' || activeTab === 'staff') {
       fetchUsers();
     }
   }, [activeTab, filterType]);
@@ -275,6 +276,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // If admin wants to use inspector tool, import and show MainApp
+  if (showInspectorTool) {
+    const { MainApp } = require('./MainApp');
+    return <MainApp user={user} onLogout={() => setShowInspectorTool(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-dark-bg">
@@ -324,24 +331,40 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
               Overview
             </button>
             <button
-              onClick={() => setActiveTab('users')}
+              onClick={() => setActiveTab('customers')}
               className={`py-4 px-2 border-b-2 font-semibold transition-colors ${
-                activeTab === 'users'
+                activeTab === 'customers'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-medium-text hover:text-light-text'
               }`}
             >
-              Users
+              Customers
             </button>
             <button
-              onClick={() => setActiveTab('activity')}
+              onClick={() => setActiveTab('staff')}
               className={`py-4 px-2 border-b-2 font-semibold transition-colors ${
-                activeTab === 'activity'
+                activeTab === 'staff'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-medium-text hover:text-light-text'
               }`}
             >
-              Activity Log
+              Staff & Admins
+            </button>
+            <button
+              onClick={() => setActiveTab('sales')}
+              className={`py-4 px-2 border-b-2 font-semibold transition-colors ${
+                activeTab === 'sales'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-medium-text hover:text-light-text'
+              }`}
+            >
+              Sales
+            </button>
+            <button
+              onClick={() => setShowInspectorTool(true)}
+              className="py-4 px-2 border-b-2 border-transparent text-green-500 hover:text-green-400 font-semibold transition-colors"
+            >
+              🔧 Use Inspector Tool
             </button>
           </div>
         </div>
@@ -413,27 +436,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <button
                       onClick={() => {
-                        setActiveTab('users');
+                        setActiveTab('customers');
                         setShowCreateUserModal(true);
                       }}
                       className="bg-primary hover:bg-primary/90 rounded-lg p-4 text-left transition-colors"
                     >
-                      <div className="text-white font-semibold mb-1">➕ Create New User</div>
+                      <div className="text-white font-semibold mb-1">➕ Create Customer</div>
                       <div className="text-sm text-white/80">Add new inspector or DIY account</div>
                     </button>
                     <button
-                      onClick={() => setActiveTab('users')}
-                      className="bg-dark-card border border-dark-border hover:border-primary rounded-lg p-4 text-left transition-colors"
+                      onClick={() => setActiveTab('staff')}
+                      className="bg-purple-600 hover:bg-purple-700 rounded-lg p-4 text-left transition-colors"
                     >
-                      <div className="text-primary font-semibold mb-1">Manage Users</div>
-                      <div className="text-sm text-medium-text">View and manage all accounts</div>
+                      <div className="text-white font-semibold mb-1">👥 Manage Staff</div>
+                      <div className="text-sm text-white/80">Create admins & team members</div>
                     </button>
                     <button
-                      onClick={() => setActiveTab('activity')}
+                      onClick={() => setActiveTab('sales')}
                       className="bg-dark-card border border-dark-border hover:border-primary rounded-lg p-4 text-left transition-colors"
                     >
-                      <div className="text-primary font-semibold mb-1">Activity Log</div>
-                      <div className="text-sm text-medium-text">Monitor platform activity</div>
+                      <div className="text-primary font-semibold mb-1">💰 Sales & Revenue</div>
+                      <div className="text-sm text-medium-text">Track earnings and subscriptions</div>
                     </button>
                   </div>
                 </div>
@@ -446,17 +469,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
           </div>
         )}
 
-        {/* Users Tab */}
-        {activeTab === 'users' && (
+        {/* Customers Tab */}
+        {activeTab === 'customers' && (
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-light-text">User Management</h2>
+              <h2 className="text-2xl font-bold text-light-text">Customer Management</h2>
               <button
                 onClick={() => setShowCreateUserModal(true)}
                 className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
               >
                 <span>➕</span>
-                <span>Create New User</span>
+                <span>Create Customer Account</span>
               </button>
             </div>
 
@@ -595,6 +618,173 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
           </div>
         )}
 
+        {/* Staff & Admins Tab - ADMIN ONLY SECTION */}
+        {activeTab === 'staff' && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-light-text">Staff & Admin Management</h2>
+                <p className="text-medium-text text-sm mt-1">🔒 Admin-only section - Create and manage staff accounts</p>
+              </div>
+              <button
+                onClick={() => {
+                  setCreateUserForm({...createUserForm, userType: 'admin', plan: 'admin'});
+                  setShowCreateUserModal(true);
+                }}
+                className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
+              >
+                <span>👥</span>
+                <span>Create Admin User</span>
+              </button>
+            </div>
+
+            <div className="bg-dark-card border border-purple-500/30 rounded-lg p-6 mb-6">
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">🛡️</div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-light-text mb-2">Admin Access Control</h3>
+                  <p className="text-medium-text text-sm mb-4">
+                    This section allows you to create admin-level accounts for your team members. Admin users can:
+                  </p>
+                  <ul className="text-sm text-medium-text space-y-1 list-disc list-inside">
+                    <li>Access this admin panel</li>
+                    <li>Manage all customer accounts</li>
+                    <li>Reset any user's password</li>
+                    <li>View sales and revenue data</li>
+                    <li>Use the inspection tool themselves</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Users List */}
+            {isLoading ? (
+              <div className="text-center py-12">
+                <div className="text-medium-text">Loading admin users...</div>
+              </div>
+            ) : (
+              <div className="bg-dark-card border border-dark-border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-dark-bg border-b border-dark-border">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-light-text">Email</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-light-text">Company/Name</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-light-text">Created</th>
+                        <th className="px-6 py-3 text-left text-sm font-semibold text-light-text">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-dark-border">
+                      {users.filter(u => u.plan === 'admin' || u.user_type === 'admin').map((adminUser) => (
+                        <tr key={adminUser.id} className="hover:bg-dark-bg/50">
+                          <td className="px-6 py-4 text-light-text">{adminUser.email}</td>
+                          <td className="px-6 py-4 text-medium-text">{adminUser.company_name || 'N/A'}</td>
+                          <td className="px-6 py-4 text-medium-text text-sm">
+                            {new Date(adminUser.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4">
+                            <button
+                              onClick={() => {
+                                setSelectedUser(adminUser);
+                                setShowResetPasswordModal(true);
+                              }}
+                              className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-sm transition-colors"
+                            >
+                              Reset Password
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {users.filter(u => u.plan === 'admin' || u.user_type === 'admin').length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-12 text-center text-medium-text">
+                            No admin users found. Click "Create Admin User" to add one.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Sales & Revenue Tab */}
+        {activeTab === 'sales' && (
+          <div>
+            <h2 className="text-2xl font-bold text-light-text mb-6">Sales & Revenue Tracking</h2>
+
+            {/* Revenue Stats */}
+            {stats && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-gradient-to-br from-green-600 to-green-700 rounded-lg p-6 text-white">
+                  <div className="text-sm opacity-90 mb-2">Total Revenue</div>
+                  <div className="text-3xl font-bold mb-1">${stats.totalRevenue.toLocaleString()}</div>
+                  <div className="text-xs opacity-75">All-time earnings</div>
+                </div>
+                <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg p-6 text-white">
+                  <div className="text-sm opacity-90 mb-2">Active Subscriptions</div>
+                  <div className="text-3xl font-bold mb-1">{stats.activeSubscriptions}</div>
+                  <div className="text-xs opacity-75">Currently paying customers</div>
+                </div>
+                <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-lg p-6 text-white">
+                  <div className="text-sm opacity-90 mb-2">Total Users</div>
+                  <div className="text-3xl font-bold mb-1">{stats.totalUsers}</div>
+                  <div className="text-xs opacity-75">{stats.proUsers} Pro + {stats.diyUsers} DIY</div>
+                </div>
+              </div>
+            )}
+
+            {/* Recent Sales Activity */}
+            <div className="bg-dark-card border border-dark-border rounded-lg p-6">
+              <h3 className="text-xl font-bold text-light-text mb-4">Recent Sales Activity</h3>
+              <div className="text-center py-8 text-medium-text">
+                <div className="text-4xl mb-3">📊</div>
+                <p>Sales tracking and transaction history</p>
+                <p className="text-sm mt-2 text-yellow-400">
+                  💡 Detailed sales logs and analytics coming soon
+                </p>
+              </div>
+            </div>
+
+            {/* Revenue Breakdown */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div className="bg-dark-card border border-dark-border rounded-lg p-6">
+                <h3 className="text-lg font-bold text-light-text mb-4">Revenue by Plan</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-medium-text">Pro Subscriptions</span>
+                    <span className="text-light-text font-semibold">{stats?.proUsers || 0} users</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-medium-text">DIY Subscriptions</span>
+                    <span className="text-light-text font-semibold">{stats?.diyUsers || 0} users</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-dark-card border border-dark-border rounded-lg p-6">
+                <h3 className="text-lg font-bold text-light-text mb-4">Platform Metrics</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-medium-text">Total Inspections</span>
+                    <span className="text-light-text font-semibold">{stats?.totalInspections || 0}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-medium-text">Avg per User</span>
+                    <span className="text-light-text font-semibold">
+                      {stats && stats.totalUsers > 0
+                        ? (stats.totalInspections / stats.totalUsers).toFixed(1)
+                        : '0'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Activity Log Tab */}
         {activeTab === 'activity' && (
           <div>
@@ -656,6 +846,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                     >
                       <option value="pro">Pro Inspector</option>
                       <option value="diy">DIY User</option>
+                      <option value="admin">🛡️ Admin (Staff Access)</option>
                     </select>
                   </div>
 
@@ -666,10 +857,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                       onChange={(e) => setCreateUserForm({...createUserForm, plan: e.target.value})}
                       className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
                     >
-                      <option value="pro-basic">Pro Basic ($99/mo)</option>
-                      <option value="pro-team">Pro Team ($299/mo)</option>
-                      <option value="diy-single">DIY Single ($50)</option>
-                      <option value="diy-5pack">DIY 5-Pack ($200)</option>
+                      {createUserForm.userType === 'admin' ? (
+                        <option value="admin">Admin Access</option>
+                      ) : (
+                        <>
+                          <option value="pro-basic">Pro Basic ($99/mo)</option>
+                          <option value="pro-team">Pro Team ($299/mo)</option>
+                          <option value="diy-single">DIY Single ($50)</option>
+                          <option value="diy-5pack">DIY 5-Pack ($200)</option>
+                        </>
+                      )}
                     </select>
                   </div>
 
