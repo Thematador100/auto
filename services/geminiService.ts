@@ -1,74 +1,38 @@
 import { GoogleGenAI, GenerateContentResponse, Chat, GroundingChunk } from '@google/genai';
 import { DTCCode, GroundingSource, InspectionState } from '../types';
-
-// Lazy initialization - only create AI instance when needed
-let ai: GoogleGenAI | null = null;
-const textModel = 'gemini-2.5-flash';
-
-const getAI = () => {
-  if (!ai) {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      throw new Error("Gemini API key is not configured. Please add GEMINI_API_KEY to your .env.local file.");
-    }
-    ai = new GoogleGenAI({ apiKey });
-  }
-  return ai;
-};
+import { backendService } from './backendService';
 
 /**
- * Analyzes a list of Diagnostic Trouble Codes (DTCs) and provides a detailed explanation.
+ * IMPORTANT: This service now proxies all AI requests through the Railway backend.
+ * API keys are stored securely on the backend - NEVER in the frontend!
+ *
+ * Legacy direct API calls have been replaced with backend service calls.
+ */
+
+/**
+ * Analyzes a list of Diagnostic Trouble Codes (DTCs) via backend AI service
+ * Backend handles API keys securely (Gemini/DeepSeek/OpenAI with automatic fallback)
  * @param codes An array of DTC codes.
  * @returns A formatted string with analysis and repair suggestions.
  */
 export const analyzeDTCCodes = async (codes: DTCCode[]): Promise<string> => {
-  const codeList = codes.map(c => c.code).join(', ');
-  const prompt = `
-    You are an expert automotive diagnostic AI.
-    Analyze the following Diagnostic Trouble Codes (DTCs): ${codeList}.
-
-    For each code, provide:
-    1.  A clear, concise definition of what the code means.
-    2.  Common symptoms associated with the code.
-    3.  A list of the most likely causes, ordered from most probable to least probable.
-    4.  A step-by-step diagnostic and repair plan for a qualified mechanic.
-
-    If multiple codes are present that are likely related (e.g., a system lean code with multiple cylinder misfires), 
-    explain the relationship and suggest a prioritized diagnostic approach.
-
-    Format the response in clear, easy-to-read Markdown. Use headings for each code and bold text for emphasis.
-  `;
-
-  try {
-    const response = await getAI().models.generateContent({
-      model: textModel,
-      contents: prompt,
-    });
-    return response.text;
-  } catch (error) {
-    console.error("Error analyzing DTC codes:", error);
-    throw new Error("Failed to analyze DTC codes. The AI service may be temporarily unavailable.");
-  }
+  console.log('[GeminiService] Proxying DTC analysis through Railway backend');
+  return await backendService.analyzeDTCCodes(codes);
 };
 
 /**
  * Creates a new chat session with Google Search and Google Maps grounding enabled.
+ * Note: This feature requires Gemini API on the backend
  * @param location Optional user location for Maps grounding.
  * @returns A Chat instance.
+ *
+ * WARNING: Chat sessions with grounding cannot be proxied through REST API easily.
+ * This functionality needs to be implemented on the backend with WebSocket support.
+ * For now, this is a placeholder that will be implemented in a future update.
  */
 export const createChatSession = (location: { latitude: number; longitude: number } | null): Chat => {
-  return ai.chats.create({
-    model: textModel,
-    config: {
-      systemInstruction: 'You are a helpful automotive assistant. You can answer questions about car repair, maintenance, and help find local automotive services. Be concise and helpful.',
-      tools: [{ googleSearch: {} }, { googleMaps: {} }],
-      toolConfig: location ? {
-        retrievalConfig: {
-          latLng: location,
-        }
-      } : undefined,
-    }
-  });
+  console.warn('[GeminiService] Chat sessions require WebSocket support - not yet implemented via backend');
+  throw new Error('Chat sessions are temporarily unavailable. Backend WebSocket support coming soon.');
 };
 
 /**
@@ -95,73 +59,12 @@ export const extractGroundingSources = (response: GenerateContentResponse): Grou
 
 
 /**
- * Generates a comprehensive vehicle inspection report summary from inspection state.
+ * Generates a comprehensive vehicle inspection report summary via backend AI service
+ * Backend handles API keys securely (Gemini/DeepSeek/OpenAI with automatic fallback)
  * @param inspectionState The collected data from the inspection form.
  * @returns A string containing the formatted report summary.
  */
 export const generateReportSummary = async (inspectionState: InspectionState): Promise<string> => {
-    // A function to format checklist data into a concise string
-    const formatChecklist = () => {
-        let findings = '';
-        for (const category in inspectionState.checklist) {
-            const items = inspectionState.checklist[category];
-            const noteworthyItems = items.filter(item => !item.checked || item.notes || item.photos.length > 0 || item.audio);
-            if (noteworthyItems.length > 0) {
-                findings += `\n### ${category}\n`;
-                noteworthyItems.forEach(item => {
-                    findings += `- **${item.item}:** ${item.checked ? 'Checked' : 'Issue Found'}. ${item.notes ? `Notes: ${item.notes}.` : ''} ${item.photos.length > 0 ? `${item.photos.length} photo(s).` : ''} ${item.audio ? 'Audio note recorded.' : ''}\n`;
-                });
-            }
-        }
-        return findings || 'All checked items passed without specific notes.';
-    };
-
-    const prompt = `
-      You are an AI that generates professional vehicle inspection reports.
-      Based on the following data, create a comprehensive report summary.
-
-      **Vehicle Information:**
-      - Year: ${inspectionState.vehicle.year}
-      - Make: ${inspectionState.vehicle.make}
-      - Model: ${inspectionState.vehicle.model}
-      - VIN: ${inspectionState.vehicle.vin}
-      - Odometer: ${inspectionState.odometer} miles
-
-      **Inspector's Overall Notes:**
-      ${inspectionState.overallNotes || "No overall notes provided."}
-
-      **Checklist Findings (only items with issues or notes are listed):**
-      ${formatChecklist()}
-
-      **Instructions:**
-      Generate a report with the following structure in Markdown format:
-      
-      ## Vehicle Inspection Summary
-
-      ### 1. Overall Condition Assessment
-      Provide a one-paragraph summary of the vehicle's overall condition based on all the provided data.
-      Start with a general statement (e.g., "This vehicle is in excellent/good/fair/poor condition...") and then elaborate.
-
-      ### 2. Key Findings
-      Create a bulleted list of the most important issues or noteworthy observations.
-      This should be a concise summary of the problems found. If no major issues were found, state that.
-      - Example: Front brake pads are worn and need replacement.
-      - Example: Minor oil leak observed from the valve cover gasket.
-      
-      ### 3. Recommendations
-      Create a prioritized, bulleted list of recommended actions.
-      Categorize them as "Immediate Attention Required," "Recommended Maintenance," and "Future Considerations."
-      Be specific. For example, instead of "Fix brakes," say "Replace front brake pads and rotors."
-    `;
-
-    try {
-        const response = await getAI().models.generateContent({
-            model: 'gemini-2.5-pro', // Use a more capable model for complex summarization
-            contents: prompt,
-        });
-        return response.text;
-    } catch (error) {
-        console.error("Error generating report summary:", error);
-        throw new Error("Failed to generate report summary. The AI service may be temporarily unavailable.");
-    }
+  console.log('[GeminiService] Proxying report generation through Railway backend');
+  return await backendService.generateReportSummary(inspectionState);
 };

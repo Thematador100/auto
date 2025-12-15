@@ -1,25 +1,104 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { MainApp } from './components/MainApp';
+import { LoginPage } from './components/LoginPage';
+import { SignupPage } from './components/SignupPage';
+import { AdminDashboard } from './components/AdminDashboard';
+import { DIYDashboard } from './components/DIYDashboard';
+import { InstallAppButton } from './components/InstallAppButton';
 import './index.css';
 
-const App: React.FC = () => {
-  const { user, login, logout } = useAuth();
+type AppView = 'login' | 'signup' | 'app';
 
-  // For this project, we'll auto-login the mock user.
-  // In a real app, you would have a login screen here.
-  
-  if (!user) {
-    // This is a fallback in case the mock user fails to load,
-    // though the current useAuth implementation always provides a user.
+/**
+ * Phase 2C: App with authentication and user routing
+ */
+const App: React.FC = () => {
+  const { user, login, logout, isLoading } = useAuth();
+  const [currentView, setCurrentView] = useState<AppView>('login');
+  const [showDIYInspection, setShowDIYInspection] = useState(false);
+
+  // Loading state while checking for existing session
+  if (isLoading) {
     return (
+      <>
+        <InstallAppButton />
         <div className="min-h-screen bg-dark-bg text-light-text flex items-center justify-center">
-            <p>Loading user...</p>
+          <div className="text-center">
+            <div className="text-4xl text-primary mb-4">🚗</div>
+            <p className="text-lg">Loading...</p>
+          </div>
         </div>
+      </>
     );
   }
 
-  return <MainApp user={user} onLogout={logout} />;
+  // User is not logged in - show auth pages
+  if (!user) {
+    if (currentView === 'signup') {
+      return (
+        <>
+          <InstallAppButton />
+          <SignupPage
+            onSignup={login}
+            onNavigateToLogin={() => setCurrentView('login')}
+          />
+        </>
+      );
+    }
+
+    return (
+      <>
+        <InstallAppButton />
+        <LoginPage
+          onLogin={login}
+          onNavigateToSignup={() => setCurrentView('signup')}
+        />
+      </>
+    );
+  }
+
+  // User is logged in - route based on user type
+
+  if (user.userType === 'admin') {
+    // Admin users get the enterprise admin panel
+    return (
+      <>
+        <InstallAppButton />
+        <AdminDashboard user={user} onLogout={logout} />
+      </>
+    );
+  }
+
+  if (user.userType === 'diy') {
+    // DIY users can toggle between dashboard and inspection flow
+    if (showDIYInspection) {
+      return (
+        <>
+          <InstallAppButton />
+          <MainApp user={user} onLogout={logout} />
+        </>
+      );
+    }
+    return (
+      <>
+        <InstallAppButton />
+        <DIYDashboard
+          user={user}
+          onLogout={logout}
+          onStartInspection={() => setShowDIYInspection(true)}
+        />
+      </>
+    );
+  }
+
+  // Pro users get the full MainApp (professional inspector interface)
+  return (
+    <>
+      <InstallAppButton />
+      <MainApp user={user} onLogout={logout} />
+    </>
+  );
 };
 
 export default App;

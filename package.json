@@ -6,12 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "backup-keys": "bash scripts/backup-api-keys.sh",
+    "restore-keys": "bash scripts/restore-api-keys.sh"
   },
   "dependencies": {
+    "@google/genai": "^1.16.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.4",
     "react": "19",
-    "react-dom": "19",
-    "@google/genai": "^1.16.0"
+    "react-dom": "19"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

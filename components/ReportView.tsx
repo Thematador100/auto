@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { CompletedReport, SafetyRecall } from '../types';
-
-declare const html2canvas: any;
-declare const jspdf: any;
+import { generatePDF, printReport } from '../services/pdfGenerator';
 
 const SectionCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="bg-dark-card p-6 rounded-lg border border-dark-border">
@@ -22,61 +20,67 @@ const Recall: React.FC<{ recall: SafetyRecall }> = ({ recall }) => (
 
 
 export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) => {
-  const [isExporting, setIsExporting] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  const handleExportPDF = async () => {
-    setIsExporting(true);
+  const handleDownloadPDF = async () => {
     try {
-      const element = document.getElementById('report-content');
-      if (!element) return;
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        backgroundColor: '#121212',
-        logging: false,
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jspdf.jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const imgWidth = 210; // A4 width in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`inspection-report-${report.vehicle.vin}-${report.id}.pdf`);
+      setIsGeneratingPDF(true);
+      await generatePDF(report);
+      setIsGeneratingPDF(false);
     } catch (error) {
-      console.error('PDF export failed:', error);
-      alert('Failed to export PDF. Please try again.');
-    } finally {
-      setIsExporting(false);
+      console.error('Failed to generate PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+      setIsGeneratingPDF(false);
     }
   };
 
-  const handleShare = async () => {
-    const shareData = {
-      title: `Inspection Report - ${report.vehicle.year} ${report.vehicle.make} ${report.vehicle.model}`,
-      text: `Vehicle Inspection Report\nVIN: ${report.vehicle.vin}\nDate: ${new Date(report.date).toLocaleDateString()}\n\nOverall Condition: ${report.summary.overallCondition}`,
-    };
+  const handlePrint = () => {
+    printReport();
+  };
 
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (error) {
-        console.error('Share failed:', error);
-      }
-    } else {
-      // Fallback to mailto if Web Share API not available
-      const mailtoLink = `mailto:?subject=${encodeURIComponent(shareData.title)}&body=${encodeURIComponent(shareData.text)}`;
-      window.location.href = mailtoLink;
-    }
+  const handleEmailReport = () => {
+    setShowEmailModal(true);
   };
 
   return (
     <div className="space-y-6">
+      {/* Action Buttons */}
+      <div className="bg-dark-card p-4 rounded-lg border border-dark-border flex gap-3 justify-end print:hidden">
+        <button
+          onClick={handleDownloadPDF}
+          disabled={isGeneratingPDF}
+          className="flex items-center gap-2 bg-primary hover:bg-primary-light text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+          {isGeneratingPDF ? 'Generating...' : 'Download PDF'}
+        </button>
+
+        <button
+          onClick={handleEmailReport}
+          className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+            <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+          </svg>
+          Email Report
+        </button>
+
+        <button
+          onClick={handlePrint}
+          className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+          </svg>
+          Print
+        </button>
+      </div>
+
+      {/* Report Header */}
       <div className="bg-dark-card p-6 rounded-lg border border-dark-border">
         <div className="flex justify-between items-start">
             <div>
@@ -91,42 +95,7 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
                 <p className="text-medium-text">Date: {new Date(report.date).toLocaleDateString()}</p>
             </div>
         </div>
-        <div className="flex gap-3 mt-4">
-          <button
-            onClick={handleExportPDF}
-            disabled={isExporting}
-            className="bg-primary hover:bg-primary-light text-white font-semibold py-2 px-4 rounded-lg transition-colors disabled:bg-gray-500 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {isExporting ? (
-              <>
-                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Exporting...
-              </>
-            ) : (
-              <>
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Download PDF
-              </>
-            )}
-          </button>
-          <button
-            onClick={handleShare}
-            className="bg-dark-bg hover:bg-dark-border text-light-text font-semibold py-2 px-4 rounded-lg border border-dark-border transition-colors flex items-center gap-2"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            Share
-          </button>
-        </div>
       </div>
-
-      <div id="report-content">
 
       <SectionCard title="AI-Powered Summary">
         <div>
@@ -208,7 +177,110 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
             <p className="text-medium-text">No open safety recalls found for this VIN.</p>
         )}
       </SectionCard>
-      </div>
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 print:hidden">
+          <div className="bg-dark-card p-6 rounded-lg border border-dark-border max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold text-light-text mb-4">Email Report</h2>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const email = formData.get('email') as string;
+              const name = formData.get('name') as string;
+              const message = formData.get('message') as string;
+
+              const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+
+              try {
+                // Call backend API to send email
+                const response = await fetch(`${BACKEND_URL}/api/reports/email`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                  },
+                  body: JSON.stringify({
+                    reportId: report.id,
+                    recipientEmail: email,
+                    recipientName: name,
+                    message: message,
+                    report: report
+                  })
+                });
+
+                if (response.ok) {
+                  alert('Report emailed successfully!');
+                  setShowEmailModal(false);
+                } else {
+                  const error = await response.json();
+                  alert(`Failed to send email: ${error.error || 'Unknown error'}`);
+                }
+              } catch (error) {
+                console.error('Email error:', error);
+                alert('Failed to send email. Please check your connection.');
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-light-text font-semibold mb-2">
+                    Recipient Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2"
+                    placeholder="Customer name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-light-text font-semibold mb-2">
+                    Recipient Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    required
+                    className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2"
+                    placeholder="customer@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-light-text font-semibold mb-2">
+                    Custom Message (Optional)
+                  </label>
+                  <textarea
+                    name="message"
+                    rows={3}
+                    className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2"
+                    placeholder="Add a personal message to the customer..."
+                  />
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailModal(false)}
+                    className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+                  >
+                    Send Email
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

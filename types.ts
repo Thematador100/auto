@@ -1,10 +1,14 @@
 // types.ts
 
-// User and authentication types
+// User and authentication types (Phase 2C: Multi-tier users)
 export interface User {
   id: string;
   email: string;
-  plan: 'pro' | 'basic';
+  plan: string;
+  userType?: 'admin' | 'pro' | 'diy';
+  companyName?: string;
+  inspectionCredits?: number;
+  subscriptionStatus?: string;
 }
 
 // Vehicle data types
