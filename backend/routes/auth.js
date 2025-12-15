@@ -184,18 +184,27 @@ router.post('/login', async (req, res) => {
 
     console.log(`[Auth] ${user.user_type} user logged in: ${user.email}`);
 
+    // Determine userType from user_type or infer from plan
+    let userType = user.user_type;
+    if (!userType) {
+      // Fallback: infer from plan if user_type is null
+      if (user.plan === 'admin') userType = 'admin';
+      else if (user.plan && user.plan.startsWith('pro')) userType = 'pro';
+      else userType = 'diy';
+    }
+
     res.json({
       message: 'Login successful',
       user: {
         id: user.id,
         email: user.email,
-        userType: user.user_type,
-        companyName: user.company_name,
+        userType: userType,
+        companyName: user.company_name || null,
         plan: user.plan,
-        inspectionCredits: user.inspection_credits,
-        subscriptionStatus: user.subscription_status,
+        inspectionCredits: user.inspection_credits !== null ? user.inspection_credits : 0,
+        subscriptionStatus: user.subscription_status || 'inactive',
         subscriptionActive: isSubscriptionActive,
-        subscriptionExpiresAt: user.subscription_expires_at
+        subscriptionExpiresAt: user.subscription_expires_at || null
       },
       token
     });
