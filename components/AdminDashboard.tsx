@@ -26,19 +26,53 @@ interface UserRecord {
   created_at: string;
 }
 
+interface CreateUserForm {
+  email: string;
+  password: string;
+  userType: 'pro' | 'diy';
+  companyName: string;
+  phone: string;
+  plan: string;
+  territory: string;
+}
+
 /**
- * Phase 2C: Enterprise Admin Dashboard
- * Platform owner can manage all users, view stats, and oversee operations
+ * Phase 2C: Enterprise Admin Dashboard with FULL Management Capabilities
+ * - Create new user logins
+ * - Manage credits, passwords, accounts
+ * - View activity and audit logs
+ * - Never leaves admin stranded
  */
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'inspections'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'activity'>('overview');
   const [stats, setStats] = useState<PlatformStats | null>(null);
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'pro' | 'diy'>('all');
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+  // Modals and forms
+  const [showCreateUserModal, setShowCreateUserModal] = useState(false);
+  const [showEditCreditsModal, setShowEditCreditsModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
+
+  const [createUserForm, setCreateUserForm] = useState<CreateUserForm>({
+    email: '',
+    password: '',
+    userType: 'pro',
+    companyName: '',
+    phone: '',
+    plan: 'pro-basic',
+    territory: ''
+  });
+
+  const [newCredits, setNewCredits] = useState<number>(0);
+  const [newPassword, setNewPassword] = useState('');
+  const [actionMessage, setActionMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
 
   // Fetch platform statistics
   const fetchStats = async () => {
@@ -79,6 +113,148 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
       }
     } catch (error) {
       console.error('Failed to fetch users:', error);
+      showMessage('error', 'Failed to load users');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const showMessage = (type: 'success' | 'error', text: string) => {
+    setActionMessage({ type, text });
+    setTimeout(() => setActionMessage(null), 5000);
+  };
+
+  // Create new user
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${BACKEND_URL}/api/admin/users/create`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(createUserForm),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('success', `User created! Login: ${data.credentials.email} / ${data.credentials.password}`);
+        setShowCreateUserModal(false);
+        setCreateUserForm({
+          email: '',
+          password: '',
+          userType: 'pro',
+          companyName: '',
+          phone: '',
+          plan: 'pro-basic',
+          territory: ''
+        });
+        fetchUsers();
+      } else {
+        showMessage('error', data.error || 'Failed to create user');
+      }
+    } catch (error) {
+      showMessage('error', 'Network error creating user');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update user credits
+  const handleUpdateCredits = async () => {
+    if (!selectedUser) return;
+    setIsLoading(true);
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${BACKEND_URL}/api/admin/users/${selectedUser.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inspectionCredits: newCredits }),
+      });
+
+      if (response.ok) {
+        showMessage('success', `Credits updated for ${selectedUser.email}`);
+        setShowEditCreditsModal(false);
+        setSelectedUser(null);
+        fetchUsers();
+      } else {
+        const data = await response.json();
+        showMessage('error', data.error || 'Failed to update credits');
+      }
+    } catch (error) {
+      showMessage('error', 'Network error updating credits');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reset user password
+  const handleResetPassword = async () => {
+    if (!selectedUser) return;
+    setIsLoading(true);
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${BACKEND_URL}/api/admin/users/${selectedUser.id}/password`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ newPassword }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('success', `Password reset! New password: ${data.newPassword}`);
+        setShowResetPasswordModal(false);
+        setSelectedUser(null);
+        setNewPassword('');
+      } else {
+        showMessage('error', data.error || 'Failed to reset password');
+      }
+    } catch (error) {
+      showMessage('error', 'Network error resetting password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete user
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+    setIsLoading(true);
+
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${BACKEND_URL}/api/admin/users/${selectedUser.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        showMessage('success', `User ${selectedUser.email} deleted`);
+        setShowDeleteConfirm(false);
+        setSelectedUser(null);
+        fetchUsers();
+      } else {
+        const data = await response.json();
+        showMessage('error', data.error || 'Failed to delete user');
+      }
+    } catch (error) {
+      showMessage('error', 'Network error deleting user');
     } finally {
       setIsLoading(false);
     }
@@ -102,12 +278,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
 
   return (
     <div className="min-h-screen bg-dark-bg">
+      {/* Success/Error Message */}
+      {actionMessage && (
+        <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg ${
+          actionMessage.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+        } text-white font-semibold`}>
+          {actionMessage.text}
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-dark-card border-b border-dark-border">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <h1 className="text-2xl font-bold text-primary">🛡️ Admin Panel</h1>
-            <span className="text-medium-text text-sm">Platform Management</span>
+            <span className="text-medium-text text-sm">Full Platform Control</span>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
@@ -149,14 +334,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
               Users
             </button>
             <button
-              onClick={() => setActiveTab('inspections')}
+              onClick={() => setActiveTab('activity')}
               className={`py-4 px-2 border-b-2 font-semibold transition-colors ${
-                activeTab === 'inspections'
+                activeTab === 'activity'
                   ? 'border-primary text-primary'
                   : 'border-transparent text-medium-text hover:text-light-text'
               }`}
             >
-              Inspections
+              Activity Log
             </button>
           </div>
         </div>
@@ -211,7 +396,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                 </div>
 
                 {/* Revenue Card */}
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-8 text-white">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-8 text-white mb-8">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm opacity-90 mb-2">Total Revenue (Estimated)</div>
@@ -223,22 +408,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                 </div>
 
                 {/* Quick Actions */}
-                <div className="mt-8">
+                <div>
                   <h3 className="text-xl font-bold text-light-text mb-4">Quick Actions</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <button
+                      onClick={() => {
+                        setActiveTab('users');
+                        setShowCreateUserModal(true);
+                      }}
+                      className="bg-primary hover:bg-primary/90 rounded-lg p-4 text-left transition-colors"
+                    >
+                      <div className="text-white font-semibold mb-1">➕ Create New User</div>
+                      <div className="text-sm text-white/80">Add new inspector or DIY account</div>
+                    </button>
                     <button
                       onClick={() => setActiveTab('users')}
                       className="bg-dark-card border border-dark-border hover:border-primary rounded-lg p-4 text-left transition-colors"
                     >
                       <div className="text-primary font-semibold mb-1">Manage Users</div>
-                      <div className="text-sm text-medium-text">View and manage all platform users</div>
+                      <div className="text-sm text-medium-text">View and manage all accounts</div>
                     </button>
                     <button
-                      onClick={() => setActiveTab('inspections')}
+                      onClick={() => setActiveTab('activity')}
                       className="bg-dark-card border border-dark-border hover:border-primary rounded-lg p-4 text-left transition-colors"
                     >
-                      <div className="text-primary font-semibold mb-1">View Inspections</div>
-                      <div className="text-sm text-medium-text">Monitor all inspection activity</div>
+                      <div className="text-primary font-semibold mb-1">Activity Log</div>
+                      <div className="text-sm text-medium-text">Monitor platform activity</div>
                     </button>
                   </div>
                 </div>
@@ -257,18 +452,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-light-text">User Management</h2>
               <button
-                onClick={fetchUsers}
-                className="px-4 py-2 bg-primary hover:bg-primary-light text-white rounded-lg transition-colors text-sm font-semibold"
+                onClick={() => setShowCreateUserModal(true)}
+                className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors font-semibold flex items-center gap-2"
               >
-                Refresh
+                <span>➕</span>
+                <span>Create New User</span>
               </button>
             </div>
 
             {/* Filters */}
             <div className="bg-dark-card border border-dark-border rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Search */}
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm text-medium-text mb-2">Search Users</label>
                   <input
                     type="text"
@@ -302,53 +498,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
               </div>
             ) : (
               <div className="bg-dark-card border border-dark-border rounded-lg overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-dark-bg">
-                    <tr>
-                      <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">User</th>
-                      <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Type</th>
-                      <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Plan</th>
-                      <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Credits</th>
-                      <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Status</th>
-                      <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-dark-border">
-                    {filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-dark-bg transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="text-light-text font-medium">{u.email}</div>
-                          {u.company_name && (
-                            <div className="text-sm text-medium-text">{u.company_name}</div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                            u.user_type === 'pro' ? 'bg-blue-900/50 text-blue-300' : 'bg-green-900/50 text-green-300'
-                          }`}>
-                            {u.user_type?.toUpperCase()}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-medium-text">{u.plan || 'N/A'}</td>
-                        <td className="px-6 py-4 text-medium-text">
-                          {u.inspection_credits === -1 ? '∞ Unlimited' : u.inspection_credits}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                            u.subscription_status === 'active' || u.subscription_status === 'trial'
-                              ? 'bg-green-900/50 text-green-300'
-                              : 'bg-yellow-900/50 text-yellow-300'
-                          }`}>
-                            {u.subscription_status || 'N/A'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-medium-text text-sm">
-                          {new Date(u.created_at).toLocaleDateString()}
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-dark-bg">
+                      <tr>
+                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">User</th>
+                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Type</th>
+                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Plan</th>
+                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Credits</th>
+                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Status</th>
+                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Joined</th>
+                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-dark-border">
+                      {filteredUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-dark-bg transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="text-light-text font-medium">{u.email}</div>
+                            {u.company_name && (
+                              <div className="text-sm text-medium-text">{u.company_name}</div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                              u.user_type === 'pro' ? 'bg-blue-900/50 text-blue-300' : 'bg-green-900/50 text-green-300'
+                            }`}>
+                              {u.user_type?.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-medium-text">{u.plan || 'N/A'}</td>
+                          <td className="px-6 py-4 text-medium-text">
+                            {u.inspection_credits === -1 ? '∞ Unlimited' : u.inspection_credits}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
+                              u.subscription_status === 'active' || u.subscription_status === 'trial'
+                                ? 'bg-green-900/50 text-green-300'
+                                : 'bg-yellow-900/50 text-yellow-300'
+                            }`}>
+                              {u.subscription_status || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-medium-text text-sm">
+                            {new Date(u.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setNewCredits(u.inspection_credits);
+                                  setShowEditCreditsModal(true);
+                                }}
+                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-colors"
+                                title="Edit Credits"
+                              >
+                                Credits
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setNewPassword('');
+                                  setShowResetPasswordModal(true);
+                                }}
+                                className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-semibold transition-colors"
+                                title="Reset Password"
+                              >
+                                Password
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setShowDeleteConfirm(true);
+                                }}
+                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors"
+                                title="Delete User"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
                 {filteredUsers.length === 0 && (
                   <div className="text-center py-12 text-medium-text">
@@ -360,20 +595,257 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
           </div>
         )}
 
-        {/* Inspections Tab */}
-        {activeTab === 'inspections' && (
+        {/* Activity Log Tab */}
+        {activeTab === 'activity' && (
           <div>
-            <h2 className="text-2xl font-bold text-light-text mb-6">All Inspections</h2>
+            <h2 className="text-2xl font-bold text-light-text mb-6">Activity Log</h2>
             <div className="bg-dark-card border border-dark-border rounded-lg p-12 text-center">
-              <div className="text-4xl mb-4">🚧</div>
-              <div className="text-light-text font-semibold mb-2">Coming Soon</div>
+              <div className="text-4xl mb-4">📊</div>
+              <div className="text-light-text font-semibold mb-2">Activity Tracking</div>
               <div className="text-medium-text">
-                View and manage all platform inspections across all users
+                View recent admin actions, user logins, and platform activity.<br/>
+                Track changes, monitor usage, and ensure platform health.
+              </div>
+              <div className="mt-6 text-sm text-yellow-400">
+                💡 Activity logs are recorded in the database - UI coming soon
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Create User Modal */}
+      {showCreateUserModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-card border border-dark-border rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-2xl font-bold text-light-text mb-6">Create New User</h3>
+
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-sm text-medium-text mb-2">Email *</label>
+                    <input
+                      type="email"
+                      value={createUserForm.email}
+                      onChange={(e) => setCreateUserForm({...createUserForm, email: e.target.value})}
+                      required
+                      className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm text-medium-text mb-2">Password * (min 8 chars)</label>
+                    <input
+                      type="text"
+                      value={createUserForm.password}
+                      onChange={(e) => setCreateUserForm({...createUserForm, password: e.target.value})}
+                      required
+                      minLength={8}
+                      className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                      placeholder="Will be shown after creation"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-medium-text mb-2">User Type *</label>
+                    <select
+                      value={createUserForm.userType}
+                      onChange={(e) => setCreateUserForm({...createUserForm, userType: e.target.value as any})}
+                      className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                    >
+                      <option value="pro">Pro Inspector</option>
+                      <option value="diy">DIY User</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-medium-text mb-2">Plan *</label>
+                    <select
+                      value={createUserForm.plan}
+                      onChange={(e) => setCreateUserForm({...createUserForm, plan: e.target.value})}
+                      className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                    >
+                      <option value="pro-basic">Pro Basic ($99/mo)</option>
+                      <option value="pro-team">Pro Team ($299/mo)</option>
+                      <option value="diy-single">DIY Single ($50)</option>
+                      <option value="diy-5pack">DIY 5-Pack ($200)</option>
+                    </select>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block text-sm text-medium-text mb-2">Company Name</label>
+                    <input
+                      type="text"
+                      value={createUserForm.companyName}
+                      onChange={(e) => setCreateUserForm({...createUserForm, companyName: e.target.value})}
+                      className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-medium-text mb-2">Phone</label>
+                    <input
+                      type="tel"
+                      value={createUserForm.phone}
+                      onChange={(e) => setCreateUserForm({...createUserForm, phone: e.target.value})}
+                      className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-medium-text mb-2">Territory</label>
+                    <input
+                      type="text"
+                      value={createUserForm.territory}
+                      onChange={(e) => setCreateUserForm({...createUserForm, territory: e.target.value})}
+                      className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                      placeholder="e.g., Los Angeles, CA"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 mt-6">
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="flex-1 px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold disabled:opacity-50 transition-colors"
+                  >
+                    {isLoading ? 'Creating...' : 'Create User'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateUserModal(false)}
+                    className="px-6 py-3 bg-dark-bg border border-dark-border text-light-text rounded-lg font-semibold hover:border-primary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Credits Modal */}
+      {showEditCreditsModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-card border border-dark-border rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-light-text mb-4">Edit Inspection Credits</h3>
+            <p className="text-medium-text mb-4">User: <span className="text-light-text">{selectedUser.email}</span></p>
+
+            <div className="mb-6">
+              <label className="block text-sm text-medium-text mb-2">
+                Inspection Credits (-1 for unlimited)
+              </label>
+              <input
+                type="number"
+                value={newCredits}
+                onChange={(e) => setNewCredits(parseInt(e.target.value))}
+                className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={handleUpdateCredits}
+                disabled={isLoading}
+                className="flex-1 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? 'Updating...' : 'Update Credits'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowEditCreditsModal(false);
+                  setSelectedUser(null);
+                }}
+                className="px-6 py-2 bg-dark-bg border border-dark-border text-light-text rounded-lg font-semibold hover:border-primary transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-card border border-dark-border rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-light-text mb-4">Reset Password</h3>
+            <p className="text-medium-text mb-4">User: <span className="text-light-text">{selectedUser.email}</span></p>
+
+            <div className="mb-6">
+              <label className="block text-sm text-medium-text mb-2">
+                New Password (min 8 characters)
+              </label>
+              <input
+                type="text"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                minLength={8}
+                placeholder="Enter new password"
+                className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={handleResetPassword}
+                disabled={isLoading || newPassword.length < 8}
+                className="flex-1 px-6 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-semibold disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? 'Resetting...' : 'Reset Password'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowResetPasswordModal(false);
+                  setSelectedUser(null);
+                  setNewPassword('');
+                }}
+                className="px-6 py-2 bg-dark-bg border border-dark-border text-light-text rounded-lg font-semibold hover:border-primary transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {showDeleteConfirm && selectedUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-card border border-red-600 rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-red-400 mb-4">⚠️ Delete User</h3>
+            <p className="text-light-text mb-2">
+              Are you sure you want to delete this user?
+            </p>
+            <p className="text-medium-text mb-6">
+              Email: <span className="text-light-text font-semibold">{selectedUser.email}</span><br/>
+              This will permanently delete all their data and inspections.
+            </p>
+
+            <div className="flex gap-4">
+              <button
+                onClick={handleDeleteUser}
+                disabled={isLoading}
+                className="flex-1 px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? 'Deleting...' : 'Yes, Delete User'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedUser(null);
+                }}
+                className="px-6 py-2 bg-dark-bg border border-dark-border text-light-text rounded-lg font-semibold hover:border-primary transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
