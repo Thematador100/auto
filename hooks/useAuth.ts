@@ -19,7 +19,7 @@ export const useAuth = () => {
           // Parse stored user
           const parsedUser = JSON.parse(storedUser);
 
-          // HOTFIX: Infer userType from plan if missing
+          // FIX: Infer userType from plan if backend doesn't provide it
           if (!parsedUser.userType && parsedUser.plan) {
             if (parsedUser.plan === 'admin') parsedUser.userType = 'admin';
             else if (parsedUser.plan.startsWith('pro')) parsedUser.userType = 'pro';
@@ -45,7 +45,7 @@ export const useAuth = () => {
 
   // Login function
   const login = (token: string, userData: any) => {
-    // HOTFIX: Infer userType from plan if API doesn't return it
+    // FIX: Infer userType from plan if backend doesn't provide it
     let userType = userData.userType;
     if (!userType && userData.plan) {
       if (userData.plan === 'admin') userType = 'admin';
