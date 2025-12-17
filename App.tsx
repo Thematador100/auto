@@ -1,22 +1,24 @@
 import React from 'react';
 import { useAuth } from './hooks/useAuth';
 import { MainApp } from './components/MainApp';
+import { AuthScreen } from './components/AuthScreen';
 import './index.css';
 
 const App: React.FC = () => {
-  const { user, login, logout } = useAuth();
+  const { user, login, logout, isLoading } = useAuth();
 
-  // For this project, we'll auto-login the mock user.
-  // In a real app, you would have a login screen here.
-  
-  if (!user) {
-    // This is a fallback in case the mock user fails to load,
-    // though the current useAuth implementation always provides a user.
+  // Show loading state
+  if (isLoading) {
     return (
         <div className="min-h-screen bg-dark-bg text-light-text flex items-center justify-center">
-            <p>Loading user...</p>
+            <p>Loading...</p>
         </div>
     );
+  }
+
+  // Show login screen if no user
+  if (!user) {
+    return <AuthScreen onLogin={login} />;
   }
 
   return <MainApp user={user} onLogout={logout} />;
