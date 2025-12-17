@@ -1,5 +1,23 @@
-// This component is no longer used and has been removed from the application flow.
-// The app now loads directly into the main dashboard for a streamlined experience.
-import React from 'react';
-const AuthScreen: React.FC = () => null;
-export default AuthScreen;
+import React, { useState } from 'react';
+import { LoginPage } from './LoginPage';
+import { SignupPage } from './SignupPage';
+
+interface AuthScreenProps {
+  onLogin: (token: string, user: any) => void;
+}
+
+export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
+  const [isLogin, setIsLogin] = useState(true);
+
+  return isLogin ? (
+    <LoginPage
+      onLogin={onLogin}
+      onNavigateToSignup={() => setIsLogin(false)}
+    />
+  ) : (
+    <SignupPage
+      onSignup={onLogin}
+      onNavigateToLogin={() => setIsLogin(true)}
+    />
+  );
+};
