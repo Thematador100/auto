@@ -5,8 +5,8 @@ import { DTCCode } from '../types';
 const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-// Determine which provider to use
-const AI_PROVIDER = DEEPSEEK_API_KEY ? 'deepseek' : GEMINI_API_KEY ? 'gemini' : null;
+// Determine which provider to use (Gemini is cheaper for this use case!)
+const AI_PROVIDER = GEMINI_API_KEY ? 'gemini' : DEEPSEEK_API_KEY ? 'deepseek' : null;
 
 if (!AI_PROVIDER) {
   console.warn('No AI provider configured. Please set VITE_DEEPSEEK_API_KEY or VITE_GEMINI_API_KEY');
