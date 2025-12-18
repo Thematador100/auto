@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
-import { supabaseConfig } from '../config/supabase';
+import { auth } from '../lib/supabaseClient';
 
 interface LoginPageProps {
   onLogin: (token: string, user: any) => void;
   onSwitchToSignup: () => void;
 }
-
-const SUPABASE_URL = supabaseConfig.url;
-const SUPABASE_ANON_KEY = supabaseConfig.anonKey;
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSwitchToSignup }) => {
   const [email, setEmail] = useState('');
@@ -21,38 +18,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSwitchToSignup 
     setLoading(true);
 
     try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/auth`, {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'login',
-          email,
-          password,
-        }),
-      });
+      const { data, error: authError } = await auth.signIn(email, password);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
+      if (authError) {
+        throw authError;
       }
 
-      if (data.success && data.token && data.user) {
-        // Store token and user
-        localStorage.setItem('token', data.token);
+      if (data.session && data.user) {
+        // Store session
+        localStorage.setItem('token', data.session.access_token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
         // Call parent login handler
-        onLogin(data.token, data.user);
+        onLogin(data.session.access_token, data.user);
       } else {
-        throw new Error('Invalid response from server');
+        throw new Error('No session returned');
       }
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.message || 'Failed to login. Please try again.');
+      setError(err.message || 'Failed to login. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -122,9 +106,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSwitchToSignup 
 
         <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500 rounded-lg">
           <p className="text-blue-400 text-xs">
-            <strong>Demo Admin Login:</strong><br/>
-            Email: admin@aiauto.pro<br/>
-            Password: admin123
+            <strong>Create an account to get started!</strong><br/>
+            Click "Sign up" above to create your admin account.
           </p>
         </div>
       </div>
