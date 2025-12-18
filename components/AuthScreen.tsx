@@ -12,12 +12,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
   return isLogin ? (
     <LoginPage
       onLogin={onLogin}
-      onNavigateToSignup={() => setIsLogin(false)}
+      onSwitchToSignup={() => setIsLogin(false)}
     />
   ) : (
     <SignupPage
       onSignup={onLogin}
-      onNavigateToLogin={() => setIsLogin(true)}
+      onSwitchToLogin={() => setIsLogin(true)}
     />
   );
 };
