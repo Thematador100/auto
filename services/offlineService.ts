@@ -1,53 +1,203 @@
-import { CompletedReport } from '../types';
+// Offline Mode Service with Auto-Sync
+// Allows inspectors to work without internet and sync when connected
 
-// This is a placeholder for a more robust offline service using IndexedDB or similar.
-// For this project, it simulates the basic API for storing and retrieving reports.
+interface QueuedInspection {
+  id: string;
+  data: any;
+  timestamp: number;
+  synced: boolean;
+}
 
-const OFFLINE_STORAGE_KEY = 'ai-auto-pro-offline-reports';
+class OfflineService {
+  private readonly STORAGE_KEY = 'offline_inspections';
+  private readonly SYNC_INTERVAL = 30000; // 30 seconds
+  private syncTimer: number | null = null;
 
-export const offlineService = {
-  /**
-   * Saves a report to the browser's localStorage.
-   * @param report The completed report to save.
-   */
-  async saveReport(report: CompletedReport): Promise<void> {
-    try {
-      const existingReports = await this.getReports();
-      const updatedReports = [report, ...existingReports];
-      localStorage.setItem(OFFLINE_STORAGE_KEY, JSON.stringify(updatedReports));
-      console.log('[OfflineService] Report saved locally.');
-    } catch (error) {
-      console.error('[OfflineService] Failed to save report locally:', error);
-    }
-  },
+  constructor() {
+    this.initializeServiceWorker();
+    this.startAutoSync();
+    this.setupOnlineListener();
+  }
 
   /**
-   * Retrieves all saved reports from localStorage.
-   * @returns A promise that resolves to an array of completed reports.
+   * Initialize service worker for offline caching
    */
-  async getReports(): Promise<CompletedReport[]> {
-    try {
-      const reportsJson = localStorage.getItem(OFFLINE_STORAGE_KEY);
-      if (reportsJson) {
-        console.log('[OfflineService] Reports loaded from local storage.');
-        return JSON.parse(reportsJson) as CompletedReport[];
+  private async initializeServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service Worker registered:', registration);
+      } catch (error) {
+        console.error('Service Worker registration failed:', error);
       }
-      return [];
-    } catch (error) {
-      console.error('[OfflineService] Failed to load reports from local storage:', error);
-      return [];
-    }
-  },
-
-  /**
-   * Clears all offline data.
-   */
-  async clearAll(): Promise<void> {
-    try {
-      localStorage.removeItem(OFFLINE_STORAGE_KEY);
-      console.log('[OfflineService] All local data cleared.');
-    } catch (error) {
-      console.error('[OfflineService] Failed to clear local data:', error);
     }
   }
-};
+
+  /**
+   * Save inspection to local storage for offline use
+   */
+  async saveOffline(inspectionData: any): Promise<string> {
+    const id = this.generateId();
+    const inspection: QueuedInspection = {
+      id,
+      data: inspectionData,
+      timestamp: Date.now(),
+      synced: false,
+    };
+
+    const queue = this.getQueue();
+    queue.push(inspection);
+    this.saveQueue(queue);
+
+    console.log(`Inspection ${id} saved offline`);
+    return id;
+  }
+
+  /**
+   * Get all offline inspections
+   */
+  getOfflineInspections(): QueuedInspection[] {
+    return this.getQueue().filter(i => !i.synced);
+  }
+
+  /**
+   * Sync all offline inspections to server
+   */
+  async syncAll(): Promise<{ success: number; failed: number }> {
+    if (!navigator.onLine) {
+      console.log('Cannot sync: offline');
+      return { success: 0, failed: 0 };
+    }
+
+    const queue = this.getQueue();
+    const unsynced = queue.filter(i => !i.synced);
+
+    if (unsynced.length === 0) {
+      console.log('No inspections to sync');
+      return { success: 0, failed: 0 };
+    }
+
+    console.log(`Syncing ${unsynced.length} inspections...`);
+
+    let success = 0;
+    let failed = 0;
+
+    for (const inspection of unsynced) {
+      try {
+        await this.syncInspection(inspection);
+        inspection.synced = true;
+        success++;
+      } catch (error) {
+        console.error(`Failed to sync inspection ${inspection.id}:`, error);
+        failed++;
+      }
+    }
+
+    this.saveQueue(queue);
+    console.log(`Sync complete: ${success} success, ${failed} failed`);
+
+    return { success, failed };
+  }
+
+  /**
+   * Sync single inspection to server
+   */
+  private async syncInspection(inspection: QueuedInspection): Promise<void> {
+    const SUPABASE_URL = 'https://yupijhwsiqejapufdwhk.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1cGlqaHdzaXFlamFwdWZkd2hrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTg3ODksImV4cCI6MjA3OTMzNDc4OX0.MQ1NIAf7i6IDafS0avwYoo2O4DDQ4hLdnlS1nHW_2A4';
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/inspections`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify(inspection.data),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Sync failed: ${response.statusText}`);
+    }
+  }
+
+  /**
+   * Start automatic sync when online
+   */
+  private startAutoSync() {
+    this.syncTimer = window.setInterval(() => {
+      if (navigator.onLine) {
+        this.syncAll();
+      }
+    }, this.SYNC_INTERVAL);
+  }
+
+  /**
+   * Setup listener for online/offline events
+   */
+  private setupOnlineListener() {
+    window.addEventListener('online', () => {
+      console.log('Connection restored, syncing...');
+      this.syncAll();
+    });
+
+    window.addEventListener('offline', () => {
+      console.log('Connection lost, switching to offline mode');
+    });
+  }
+
+  /**
+   * Get sync queue from localStorage
+   */
+  private getQueue(): QueuedInspection[] {
+    const data = localStorage.getItem(this.STORAGE_KEY);
+    return data ? JSON.parse(data) : [];
+  }
+
+  /**
+   * Save sync queue to localStorage
+   */
+  private saveQueue(queue: QueuedInspection[]) {
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(queue));
+  }
+
+  /**
+   * Generate unique ID
+   */
+  private generateId(): string {
+    return `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Check if currently online
+   */
+  isOnline(): boolean {
+    return navigator.onLine;
+  }
+
+  /**
+   * Get pending sync count
+   */
+  getPendingCount(): number {
+    return this.getOfflineInspections().length;
+  }
+
+  /**
+   * Clear synced inspections from storage
+   */
+  clearSynced() {
+    const queue = this.getQueue().filter(i => !i.synced);
+    this.saveQueue(queue);
+  }
+
+  /**
+   * Stop auto-sync
+   */
+  destroy() {
+    if (this.syncTimer) {
+      clearInterval(this.syncTimer);
+    }
+  }
+}
+
+export const offlineService = new OfflineService();
