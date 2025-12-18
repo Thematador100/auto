@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
+import { supabaseConfig } from '../config/supabase';
 
 interface AdminStats {
   users: {
@@ -21,8 +22,8 @@ interface AdminUser {
   created_at: string;
 }
 
-const SUPABASE_URL = 'https://yupijhwsiqejapufdwhk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1cGlqaHdzaXFlamFwdWZkd2hrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTg3ODksImV4cCI6MjA3OTMzNDc4OX0.MQ1NIAf7i6IDafS0avwYoo2O4DDQ4hLdnlS1nHW_2A4';
+const SUPABASE_URL = supabaseConfig.url;
+const SUPABASE_ANON_KEY = supabaseConfig.anonKey;
 
 export const AdminPanel: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'licenses' | 'territories'>('dashboard');

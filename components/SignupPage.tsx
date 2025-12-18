@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
+import { supabaseConfig } from '../config/supabase';
 
 interface SignupPageProps {
   onSignup: (token: string, user: any) => void;
   onSwitchToLogin: () => void;
 }
 
-const SUPABASE_URL = 'https://yupijhwsiqejapufdwhk.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1cGlqaHdzaXFlamFwdWZkd2hrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTg3ODksImV4cCI6MjA3OTMzNDc4OX0.MQ1NIAf7i6IDafS0avwYoo2O4DDQ4hLdnlS1nHW_2A4';
+const SUPABASE_URL = supabaseConfig.url;
+const SUPABASE_ANON_KEY = supabaseConfig.anonKey;
 
 export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) => {
   const [email, setEmail] = useState('');

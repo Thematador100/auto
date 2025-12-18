@@ -1,6 +1,8 @@
 // Offline Mode Service with Auto-Sync
 // Allows inspectors to work without internet and sync when connected
 
+import { supabaseConfig } from '../config/supabase';
+
 interface QueuedInspection {
   id: string;
   data: any;
@@ -103,8 +105,8 @@ class OfflineService {
    * Sync single inspection to server
    */
   private async syncInspection(inspection: QueuedInspection): Promise<void> {
-    const SUPABASE_URL = 'https://yupijhwsiqejapufdwhk.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1cGlqaHdzaXFlamFwdWZkd2hrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTg3ODksImV4cCI6MjA3OTMzNDc4OX0.MQ1NIAf7i6IDafS0avwYoo2O4DDQ4hLdnlS1nHW_2A4';
+    const SUPABASE_URL = supabaseConfig.url;
+    const SUPABASE_ANON_KEY = supabaseConfig.anonKey;
 
     const response = await fetch(`${SUPABASE_URL}/rest/v1/inspections`, {
       method: 'POST',
