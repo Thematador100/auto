@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chat, GenerateContentResponse } from '@google/genai';
-import { createChatSession, extractGroundingSources } from '../services/geminiService';
+import { createChatSession, extractGroundingSources } from '../services/aiService';
 import { GroundingSource } from '../types';
 import { LoadingSpinner } from './LoadingSpinner';
 

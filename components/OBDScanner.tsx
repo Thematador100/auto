@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { analyzeDTCCodes } from '../services/geminiService';
+import { analyzeDTCCodes } from '../services/aiService';
 import { DTCCode } from '../types';
 import { LoadingSpinner } from './LoadingSpinner';
 
