@@ -112,3 +112,4 @@ If you're experiencing API issues (especially with DTC analysis or other AI feat
 - ❌ "All AI providers failed" error → Check your API keys in `.env.local`
 - ⚠️ Lost your `.env.local` file? → Run `npm run restore-keys`
 # Trigger rebuild with environment variables
+# Redeploy with environment variables configured
