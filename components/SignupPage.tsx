@@ -3,10 +3,10 @@ import { auth, supabase } from '../lib/supabaseClient';
 
 interface SignupPageProps {
   onSignup: (token: string, user: any) => void;
-  onSwitchToLogin: () => void;
+  onNavigateToLogin: () => void;
 }
 
-export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogin }) => {
+export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -157,7 +157,7 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onSwitchToLogi
           <p className="text-medium-text">
             Already have an account?{' '}
             <button
-              onClick={onSwitchToLogin}
+              onClick={onNavigateToLogin}
               className="text-primary hover:underline"
             >
               Sign in

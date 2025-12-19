@@ -3,10 +3,10 @@ import { auth } from '../lib/supabaseClient';
 
 interface LoginPageProps {
   onLogin: (token: string, user: any) => void;
-  onSwitchToSignup: () => void;
+  onNavigateToSignup: () => void;
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSwitchToSignup }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -96,7 +96,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onSwitchToSignup 
           <p className="text-medium-text">
             Don't have an account?{' '}
             <button
-              onClick={onSwitchToSignup}
+              onClick={onNavigateToSignup}
               className="text-primary hover:underline"
             >
               Sign up
