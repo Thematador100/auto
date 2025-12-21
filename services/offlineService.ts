@@ -185,6 +185,21 @@ class OfflineService {
   }
 
   /**
+   * Get all reports (for CustomerDashboard)
+   */
+  async getReports(): Promise<any[]> {
+    const queue = this.getQueue();
+    return queue.map(item => item.data);
+  }
+
+  /**
+   * Save report (for FinalizeScreen)
+   */
+  async saveReport(reportData: any): Promise<string> {
+    return this.saveOffline(reportData);
+  }
+
+  /**
    * Clear synced inspections from storage
    */
   clearSynced() {

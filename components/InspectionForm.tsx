@@ -121,7 +121,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({ onFinalize }) =>
         <div key={category} className="bg-dark-card p-6 rounded-lg border border-dark-border">
           <h2 className="text-xl font-semibold text-light-text mb-4">{category}</h2>
           <div className="space-y-6">
-            {items.map((item, index) => (
+            {Array.isArray(items) && items.map((item, index) => (
               <div key={index} className="border-t border-dark-border pt-4">
                 <div className="flex justify-between items-start">
                   <label className="flex items-center space-x-3">

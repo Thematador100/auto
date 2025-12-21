@@ -88,7 +88,7 @@ export const extractGroundingSources = (response: GenerateContentResponse): Grou
             return { uri: chunk.maps.uri, title: chunk.maps.title };
         }
         return null;
-    }).filter((source): source is GroundingSource => source !== null);
+    }).filter((source): source is { uri: string; title: string } => source !== null && source.title !== undefined) as GroundingSource[];
 };
 
 
