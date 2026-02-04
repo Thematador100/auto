@@ -15,7 +15,8 @@ import adminRoutes from './routes/admin.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+// Update: Default to 8080 to match Railway's expected port
+const PORT = process.env.PORT || 8080;
 
 // Security middleware
 app.use(helmet());
