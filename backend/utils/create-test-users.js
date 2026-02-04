@@ -22,8 +22,7 @@ async function createTestAdmin() {
       // CRITICAL FIX: Force reset the password to ensure you can login
       await query(
         `UPDATE users 
-         SET password_hash = $1, user_type = 'admin', plan = 'admin', license_status = 'active' 
-         WHERE email = $2`, 
+         SET password_hash = $1, user_type = 'admin', plan = 'admin'         WHERE email = $2`, 
         [passwordHash, email]
       );
       console.log('✅ Admin exists - Password RESET to: admin123');
@@ -33,9 +32,7 @@ async function createTestAdmin() {
       await query(
         `INSERT INTO users (
           email, password_hash, user_type, plan, inspection_credits, 
-          subscription_status, license_status, created_at
-        ) VALUES ($1, $2, 'admin', 'admin', -1, 'active', 'active', NOW())`,
-        [email, passwordHash]
+        ) VALUES ($1, $2, 'admin', 'admin', -1, 'active', NOW())`,        [email, passwordHash]
       );
       console.log('✅ New Admin user created!');
     }
