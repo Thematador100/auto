@@ -15,6 +15,9 @@ import adminRoutes from './routes/admin.js';
 dotenv.config();
 
 const app = express();
+
+// Trust proxy for Railway's reverse proxy
+app.set('trust proxy', 1);
 // Update: Default to 8080 to match Railway's expected port
 const PORT = process.env.PORT || 8080;
 
