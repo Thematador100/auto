@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { auth } from '../lib/supabaseClient';
 
 interface LoginPageProps {
   onLogin: (token: string, user: any) => void;
   onNavigateToSignup: () => void;
 }
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignup }) => {
   const [email, setEmail] = useState('');
@@ -18,22 +19,27 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, onNavigateToSignu
     setLoading(true);
 
     try {
-      const { data, error: authError } = await auth.signIn(email, password);
+      // Call Railway backend API
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (authError) {
-        throw authError;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
       }
 
-      if (data.session && data.user) {
-        // Store session
-        localStorage.setItem('token', data.session.access_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Call parent login handler
-        onLogin(data.session.access_token, data.user);
-      } else {
-        throw new Error('No session returned');
-      }
+      // Store token and user data
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // Call parent login handler
+      onLogin(data.token, data.user);
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'Failed to login. Please check your credentials.');
