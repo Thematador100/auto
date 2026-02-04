@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { auth, supabase } from '../lib/supabaseClient';
 
 interface SignupPageProps {
   onSignup: (token: string, user: any) => void;
   onNavigateToLogin: () => void;
 }
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
+
 export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [userType, setUserType] = useState<'diy' | 'inspector' | 'admin'>('diy');
+  const [userType, setUserType] = useState<'diy' | 'pro' | 'admin'>('diy');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -20,51 +21,32 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLo
     setLoading(true);
 
     try {
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await auth.signUp(email, password, {
-        company_name: companyName,
-        user_type: userType,
+      // Call Railway backend API for signup
+      const response = await fetch(`${BACKEND_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          userType,
+          companyName: companyName || undefined,
+        }),
       });
 
-      if (authError) {
-        throw authError;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Signup failed');
       }
 
-      if (!authData.user) {
-        throw new Error('Signup failed - no user returned');
-      }
+      // Store token and user data
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
 
-      // Create user record in database
-      const { error: dbError } = await supabase
-        .from('users')
-        .insert([
-          {
-            id: authData.user.id,
-            email: email,
-            user_type: userType,
-            company_name: companyName || null,
-            plan: userType === 'inspector' ? 'professional' : 'basic',
-            license_status: 'trial',
-          },
-        ]);
-
-      if (dbError) {
-        console.error('Database error:', dbError);
-        // Continue anyway - auth succeeded
-      }
-
-      // Auto sign in after signup
-      const { data: signInData, error: signInError } = await auth.signIn(email, password);
-
-      if (signInError) {
-        throw signInError;
-      }
-
-      if (signInData.session && signInData.user) {
-        localStorage.setItem('token', signInData.session.access_token);
-        localStorage.setItem('user', JSON.stringify(signInData.user));
-        onSignup(signInData.session.access_token, signInData.user);
-      }
+      // Call parent signup handler
+      onSignup(data.token, data.user);
     } catch (err: any) {
       console.error('Signup error:', err);
       setError(err.message || 'Failed to create account. Please try again.');
@@ -111,9 +93,9 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLo
               className="w-full px-4 py-2 bg-dark-bg border border-dark-border rounded-lg text-light-text focus:outline-none focus:border-primary"
               placeholder="••••••••"
               required
-              minLength={6}
+              minLength={8}
             />
-            <p className="text-xs text-medium-text mt-1">Minimum 6 characters</p>
+            <p className="text-xs text-medium-text mt-1">Minimum 8 characters</p>
           </div>
 
           <div>
@@ -135,11 +117,11 @@ export const SignupPage: React.FC<SignupPageProps> = ({ onSignup, onNavigateToLo
             </label>
             <select
               value={userType}
-              onChange={(e) => setUserType(e.target.value as 'diy' | 'inspector' | 'admin')}
+              onChange={(e) => setUserType(e.target.value as 'diy' | 'pro' | 'admin')}
               className="w-full px-4 py-2 bg-dark-bg border border-dark-border rounded-lg text-light-text focus:outline-none focus:border-primary"
             >
               <option value="diy">DIY User</option>
-              <option value="inspector">Professional Inspector</option>
+              <option value="pro">Professional Inspector</option>
               <option value="admin">Admin</option>
             </select>
           </div>
