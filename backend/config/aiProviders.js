@@ -38,65 +38,87 @@ if (process.env.OPENAI_API_KEY) {
   console.warn('⚠️  OPENAI_API_KEY not configured');
 }
 
+// Get preferred provider from environment
+const PREFERRED_PROVIDER = (process.env.PREFERRED_AI_PROVIDER || 'deepseek').toLowerCase();
+console.log(`🎯 Preferred AI Provider: ${PREFERRED_PROVIDER}`);
+
 /**
  * Generate text using AI with automatic fallback
- * Tries: Gemini → DeepSeek → OpenAI
+ * Respects PREFERRED_AI_PROVIDER environment variable
+ * Falls back to other providers if preferred one fails
  */
 export const generateText = async (prompt, options = {}) => {
   const { temperature = 0.7, maxTokens = 2000 } = options;
   const errors = [];
 
-  // Try Gemini first (free tier available)
-  if (geminiClient) {
+  // Define provider functions
+  const tryGemini = async () => {
+    if (!geminiClient) throw new Error('Gemini not configured');
+    console.log('[AI] Attempting with Gemini...');
+    const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature,
+        maxOutputTokens: maxTokens
+      }
+    });
+    return result.response.text();
+  };
+
+  const tryDeepSeek = async () => {
+    if (!deepseekClient) throw new Error('DeepSeek not configured');
+    console.log('[AI] Attempting with DeepSeek...');
+    const completion = await deepseekClient.chat.completions.create({
+      model: 'deepseek-chat',
+      messages: [{ role: 'user', content: prompt }],
+      temperature,
+      max_tokens: maxTokens
+    });
+    return completion.choices[0].message.content;
+  };
+
+  const tryOpenAI = async () => {
+    if (!openaiClient) throw new Error('OpenAI not configured');
+    console.log('[AI] Attempting with OpenAI...');
+    const completion = await openaiClient.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature,
+      max_tokens: maxTokens
+    });
+    return completion.choices[0].message.content;
+  };
+
+  // Map provider names to functions
+  const providers = {
+    gemini: tryGemini,
+    google: tryGemini,
+    deepseek: tryDeepSeek,
+    openai: tryOpenAI
+  };
+
+  // Try preferred provider first
+  if (providers[PREFERRED_PROVIDER]) {
     try {
-      console.log('[AI] Attempting with Gemini...');
-      const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens
-        }
-      });
-      const response = result.response;
-      return response.text();
+      return await providers[PREFERRED_PROVIDER]();
     } catch (error) {
-      errors.push(`Gemini: ${error.message}`);
-      console.error('[AI] Gemini failed:', error.message);
+      errors.push(`${PREFERRED_PROVIDER}: ${error.message}`);
+      console.error(`[AI] ${PREFERRED_PROVIDER} failed:`, error.message);
     }
   }
 
-  // Try DeepSeek (cost-effective alternative)
-  if (deepseekClient) {
-    try {
-      console.log('[AI] Attempting with DeepSeek...');
-      const completion = await deepseekClient.chat.completions.create({
-        model: 'deepseek-chat',
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-        max_tokens: maxTokens
-      });
-      return completion.choices[0].message.content;
-    } catch (error) {
-      errors.push(`DeepSeek: ${error.message}`);
-      console.error('[AI] DeepSeek failed:', error.message);
-    }
-  }
-
-  // Try OpenAI as last resort
-  if (openaiClient) {
-    try {
-      console.log('[AI] Attempting with OpenAI...');
-      const completion = await openaiClient.chat.completions.create({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature,
-        max_tokens: maxTokens
-      });
-      return completion.choices[0].message.content;
-    } catch (error) {
-      errors.push(`OpenAI: ${error.message}`);
-      console.error('[AI] OpenAI failed:', error.message);
+  // Fallback to other providers in cost-effective order
+  const fallbackOrder = ['deepseek', 'gemini', 'openai'].filter(p => p !== PREFERRED_PROVIDER);
+  
+  for (const providerName of fallbackOrder) {
+    if (providers[providerName]) {
+      try {
+        return await providers[providerName]();
+      } catch (error) {
+        errors.push(`${providerName}: ${error.message}`);
+        console.error(`[AI] ${providerName} failed:`, error.message);
+      }
     }
   }
 
@@ -116,10 +138,10 @@ export const analyzeImage = async (imageBase64, prompt) => {
   try {
     console.log('[AI] Analyzing image with Gemini Vision...');
     const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
+    
     // Remove data URI prefix if present
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-
+    
     const result = await model.generateContent({
       contents: [{
         role: 'user',
@@ -134,7 +156,7 @@ export const analyzeImage = async (imageBase64, prompt) => {
         ]
       }]
     });
-
+    
     return result.response.text();
   } catch (error) {
     console.error('[AI] Image analysis failed:', error);
