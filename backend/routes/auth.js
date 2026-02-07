@@ -118,7 +118,7 @@ router.post('/signup', async (req, res) => {
     const user = result.rows[0];
 
     // Generate JWT token
-    const token = generateToken(user.id, user.email, user.plan);
+    const token = generateToken(user.id, user.email, user.plan, userType);
 
     console.log(`[Auth] New ${userType} user registered: ${user.email}`);
 
@@ -180,7 +180,6 @@ router.post('/login', async (req, res) => {
       : false;
 
     // Generate JWT token
-    const token = generateToken(user.id, user.email, user.plan);
 
     console.log(`[Auth] ${user.user_type} user logged in: ${user.email}`);
 
@@ -192,6 +191,9 @@ router.post('/login', async (req, res) => {
       else if (user.plan && user.plan.startsWith('pro')) userType = 'pro';
       else userType = 'diy';
     }
+
+        // Generate JWT token
+        const token = generateToken(user.id, user.email, user.plan, userType);
 
     res.json({
       message: 'Login successful',
