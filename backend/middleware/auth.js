@@ -30,7 +30,8 @@ export const authenticateToken = (req, res, next) => {
     req.user = {
       id: decoded.userId,
       email: decoded.email,
-      plan: decoded.plan
+      plan: decoded.plan,
+            userType: decoded.userType
     };
 
     console.log(`[Auth] User ${req.user.email} authenticated`);
@@ -69,9 +70,9 @@ export const requirePlan = (requiredPlan) => {
 /**
  * Generate a JWT token for a user
  */
-export const generateToken = (userId, email, plan) => {
+export const generateToken = (userId, email, plan, userType) => {
   return jwt.sign(
-    { userId, email, plan },
+    { userId, email, plan, userType },
     JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
