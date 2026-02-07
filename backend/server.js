@@ -11,6 +11,7 @@ import reportRoutes from './routes/reports.js';
 import fraudRoutes from './routes/fraud.js';
 import commonIssuesRoutes from './routes/commonIssues.js';
 import adminRoutes from './routes/admin.js';
+import { runMigrations } from './utils/runMigrations.js';
 
 dotenv.config();
 
@@ -77,12 +78,19 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ AI Auto Inspection Backend running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'all origins'}`);
-  console.log(`🔐 Rate limit: ${process.env.RATE_LIMIT_MAX_REQUESTS || 100} requests per ${(parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000) / 60000} minutes`);
-});
+// Run database migrations before starting server
+(async () => {
+  await runMigrations();
+  
+  // Start server
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`✅ AI Auto Inspection Backend running on port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'all origins'}`);
+    console.log(`🔐 Rate limit: ${process.env.RATE_LIMIT_MAX_REQUESTS || 100} requests per ${(parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000) / 60000} minutes`);
+  });
+})();
+
+export default app;
 
 export default app;
