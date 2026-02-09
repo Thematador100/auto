@@ -1,13 +1,73 @@
 import React, { useState } from 'react';
-import { CompletedReport, SafetyRecall } from '../types';
+import { CompletedReport, SafetyRecall, ReportSection, ReportSectionItem } from '../types';
 import { generatePDF, printReport } from '../services/pdfGenerator';
 
-const SectionCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <div className="bg-dark-card p-6 rounded-lg border border-dark-border">
-    <h2 className="text-xl font-semibold text-light-text border-b border-dark-border pb-3 mb-4">{title}</h2>
+const VEHICLE_TYPE_LABELS: Record<string, string> = {
+  Standard: 'Standard Vehicle',
+  EV: 'Electric Vehicle',
+  Commercial: 'Commercial / 18-Wheeler',
+  RV: 'RV / Motorhome',
+  Classic: 'Classic / Vintage',
+  Motorcycle: 'Motorcycle',
+};
+
+const COMPLIANCE_LABELS: Record<string, string> = {
+  Commercial: 'DOT / FMCSA Compliance',
+  RV: 'Habitability & Safety Systems',
+  Classic: 'Authenticity & Provenance',
+};
+
+const SectionCard: React.FC<{ title: string; children: React.ReactNode; accent?: string }> = ({ title, children, accent }) => (
+  <div className={`bg-dark-card p-6 rounded-lg border ${accent ? `border-${accent}` : 'border-dark-border'}`}>
+    <h2 className={`text-xl font-semibold border-b border-dark-border pb-3 mb-4 ${accent ? `text-${accent}` : 'text-light-text'}`}>{title}</h2>
     <div className="space-y-4">{children}</div>
   </div>
 );
+
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const colors: Record<string, string> = {
+    Pass: 'bg-green-600/20 text-green-400 border-green-600/30',
+    Fail: 'bg-red-600/20 text-red-400 border-red-600/30',
+    Concern: 'bg-yellow-600/20 text-yellow-400 border-yellow-600/30',
+    'N/A': 'bg-gray-600/20 text-gray-400 border-gray-600/30',
+  };
+  return (
+    <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${colors[status] || colors['N/A']}`}>
+      {status}
+    </span>
+  );
+};
+
+const InspectionSectionView: React.FC<{ section: ReportSection }> = ({ section }) => {
+  const failCount = section.items.filter(i => i.status === 'Fail').length;
+  const concernCount = section.items.filter(i => i.status === 'Concern').length;
+
+  return (
+    <div className="bg-dark-card p-6 rounded-lg border border-dark-border">
+      <div className="flex justify-between items-center border-b border-dark-border pb-3 mb-4">
+        <h3 className="text-lg font-semibold text-light-text">{section.title}</h3>
+        <div className="flex gap-2 text-xs">
+          {failCount > 0 && <span className="text-red-400 font-semibold">{failCount} Failed</span>}
+          {concernCount > 0 && <span className="text-yellow-400 font-semibold">{concernCount} Concerns</span>}
+          {failCount === 0 && concernCount === 0 && <span className="text-green-400 font-semibold">All Clear</span>}
+        </div>
+      </div>
+      <div className="space-y-3">
+        {section.items.map((item, i) => (
+          <div key={i} className={`flex flex-col sm:flex-row sm:items-start gap-2 py-2 ${i > 0 ? 'border-t border-dark-border/50' : ''}`}>
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <StatusBadge status={item.status} />
+              <span className="text-light-text text-sm">{item.check}</span>
+            </div>
+            {item.details && (
+              <p className="text-xs text-medium-text sm:max-w-[40%] pl-6 sm:pl-0">{item.details}</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const Recall: React.FC<{ recall: SafetyRecall }> = ({ recall }) => (
     <div className="p-4 rounded-md bg-dark-bg border border-dark-border">
@@ -17,6 +77,41 @@ const Recall: React.FC<{ recall: SafetyRecall }> = ({ recall }) => (
         <p className="text-sm text-medium-text mt-1"><strong className="text-light-text">Remedy:</strong> {recall.remedy}</p>
     </div>
 );
+
+const InspectionScorecard: React.FC<{ sections: ReportSection[]; label: string }> = ({ sections, label }) => {
+  const totalItems = sections.reduce((sum, s) => sum + s.items.length, 0);
+  const passCount = sections.reduce((sum, s) => sum + s.items.filter(i => i.status === 'Pass').length, 0);
+  const failCount = sections.reduce((sum, s) => sum + s.items.filter(i => i.status === 'Fail').length, 0);
+  const concernCount = sections.reduce((sum, s) => sum + s.items.filter(i => i.status === 'Concern').length, 0);
+  const naCount = totalItems - passCount - failCount - concernCount;
+
+  if (totalItems === 0) return null;
+
+  const passRate = Math.round((passCount / (totalItems - naCount)) * 100) || 0;
+
+  return (
+    <div className="bg-dark-card p-4 rounded-lg border border-dark-border">
+      <h3 className="text-sm font-semibold text-medium-text mb-3">{label}</h3>
+      <div className="flex items-center gap-4">
+        <div className="text-3xl font-bold text-light-text">{passRate}%</div>
+        <div className="flex-1">
+          <div className="w-full h-2 bg-dark-bg rounded-full overflow-hidden flex">
+            {passCount > 0 && <div className="bg-green-500 h-full" style={{ width: `${(passCount / totalItems) * 100}%` }} />}
+            {concernCount > 0 && <div className="bg-yellow-500 h-full" style={{ width: `${(concernCount / totalItems) * 100}%` }} />}
+            {failCount > 0 && <div className="bg-red-500 h-full" style={{ width: `${(failCount / totalItems) * 100}%` }} />}
+            {naCount > 0 && <div className="bg-gray-600 h-full" style={{ width: `${(naCount / totalItems) * 100}%` }} />}
+          </div>
+          <div className="flex gap-3 mt-1 text-xs">
+            <span className="text-green-400">{passCount} Pass</span>
+            <span className="text-yellow-400">{concernCount} Concern</span>
+            <span className="text-red-400">{failCount} Fail</span>
+            <span className="text-gray-400">{naCount} N/A</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 
 export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) => {
@@ -43,8 +138,12 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
     setShowEmailModal(true);
   };
 
+  const vehicleType = report.vehicleType || 'Standard';
+  const hasComplianceSections = report.complianceSections && report.complianceSections.length > 0;
+  const complianceLabel = COMPLIANCE_LABELS[vehicleType] || 'Additional Checks';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" id="report-content">
       {/* Action Buttons */}
       <div className="bg-dark-card p-4 rounded-lg border border-dark-border flex gap-3 justify-end print:hidden">
         <button
@@ -91,12 +190,27 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
                 <p className="font-mono text-sm text-primary">{report.vehicle.vin}</p>
             </div>
             <div className="text-right">
-                <p className="text-medium-text">Report ID: {report.id}</p>
-                <p className="text-medium-text">Date: {new Date(report.date).toLocaleDateString()}</p>
+                <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-primary/20 text-primary mb-2">
+                  {VEHICLE_TYPE_LABELS[vehicleType] || vehicleType}
+                </span>
+                <p className="text-medium-text text-sm">Report ID: {report.id}</p>
+                <p className="text-medium-text text-sm">Date: {new Date(report.date).toLocaleDateString()}</p>
+                {report.odometer && <p className="text-medium-text text-sm">Odometer: {Number(report.odometer).toLocaleString()} mi</p>}
             </div>
         </div>
       </div>
 
+      {/* Scorecards */}
+      <div className={`grid gap-4 ${hasComplianceSections ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+        {report.sections && report.sections.length > 0 && (
+          <InspectionScorecard sections={report.sections} label="Inspection Pass Rate" />
+        )}
+        {hasComplianceSections && (
+          <InspectionScorecard sections={report.complianceSections} label={`${complianceLabel} Pass Rate`} />
+        )}
+      </div>
+
+      {/* AI Summary */}
       <SectionCard title="AI-Powered Summary">
         <div>
             <h3 className="text-lg font-semibold text-primary mb-2">Overall Condition Assessment</h3>
@@ -120,6 +234,38 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
         </div>
       </SectionCard>
 
+      {/* Detailed Inspection Findings */}
+      {report.sections && report.sections.length > 0 && (
+        <>
+          <h2 className="text-2xl font-bold text-light-text pt-2">Detailed Inspection Findings</h2>
+          {report.sections.map((section, i) => (
+            <InspectionSectionView key={i} section={section} />
+          ))}
+        </>
+      )}
+
+      {/* Compliance Sections */}
+      {hasComplianceSections && (
+        <>
+          <div className="bg-primary/10 border border-primary/30 p-4 rounded-lg mt-2">
+            <h2 className="text-2xl font-bold text-primary">{complianceLabel}</h2>
+            {vehicleType === 'Commercial' && (
+              <p className="text-medium-text text-sm mt-1">FMCSR Part 396 compliance checklist - Items marked Fail may trigger Out-of-Service orders</p>
+            )}
+            {vehicleType === 'RV' && (
+              <p className="text-medium-text text-sm mt-1">NFPA 1192 / RVIA safety standards - LP gas, water, electrical, and emergency systems</p>
+            )}
+            {vehicleType === 'Classic' && (
+              <p className="text-medium-text text-sm mt-1">Numbers matching, originality assessment, and provenance verification</p>
+            )}
+          </div>
+          {report.complianceSections.map((section, i) => (
+            <InspectionSectionView key={`compliance-${i}`} section={section} />
+          ))}
+        </>
+      )}
+
+      {/* Vehicle History & Theft/Salvage */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
          <SectionCard title="Vehicle History">
             <div className="flex justify-between">
@@ -167,7 +313,7 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
             </p>
         </SectionCard>
       </div>
-      
+
       <SectionCard title="Open Safety Recalls">
         {report.safetyRecalls.length > 0 ? (
             <div className="space-y-4">
@@ -194,7 +340,6 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
               const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
 
               try {
-                // Call backend API to send email
                 const response = await fetch(`${BACKEND_URL}/api/reports/email`, {
                   method: 'POST',
                   headers: {
@@ -224,64 +369,26 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
             }}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-light-text font-semibold mb-2">
-                    Recipient Name
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2"
-                    placeholder="Customer name"
-                  />
+                  <label className="block text-light-text font-semibold mb-2">Recipient Name</label>
+                  <input type="text" name="name" required className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2" placeholder="Customer name" />
                 </div>
-
                 <div>
-                  <label className="block text-light-text font-semibold mb-2">
-                    Recipient Email
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    required
-                    className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2"
-                    placeholder="customer@example.com"
-                  />
+                  <label className="block text-light-text font-semibold mb-2">Recipient Email</label>
+                  <input type="email" name="email" required className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2" placeholder="customer@example.com" />
                 </div>
-
                 <div>
-                  <label className="block text-light-text font-semibold mb-2">
-                    Custom Message (Optional)
-                  </label>
-                  <textarea
-                    name="message"
-                    rows={3}
-                    className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2"
-                    placeholder="Add a personal message to the customer..."
-                  />
+                  <label className="block text-light-text font-semibold mb-2">Custom Message (Optional)</label>
+                  <textarea name="message" rows={3} className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2" placeholder="Add a personal message to the customer..." />
                 </div>
-
                 <div className="flex gap-3 justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setShowEmailModal(false)}
-                    className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
-                  >
-                    Send Email
-                  </button>
+                  <button type="button" onClick={() => setShowEmailModal(false)} className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Cancel</button>
+                  <button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">Send Email</button>
                 </div>
               </div>
             </form>
           </div>
         </div>
       )}
-
     </div>
   );
 };
