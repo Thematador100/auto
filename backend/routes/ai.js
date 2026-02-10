@@ -11,18 +11,41 @@ const router = express.Router();
  */
 router.post('/analyze-dtc', authenticateToken, async (req, res) => {
   try {
-    const { codes } = req.body;
+    const { codes, vehicleType } = req.body;
 
     if (!codes || !Array.isArray(codes) || codes.length === 0) {
       return res.status(400).json({ error: 'Codes array is required' });
     }
 
-    console.log(`[AI] Analyzing ${codes.length} DTC codes for user ${req.user.email}`);
+    console.log(`[AI] Analyzing ${codes.length} DTC codes for user ${req.user.email} (type: ${vehicleType || 'Standard'})`);
+
+    // Detect if these are J1939 SPN/FMI codes (commercial trucks) or standard OBD-II DTCs
+    const isJ1939 = vehicleType === 'Commercial' || codes.some(c =>
+      c.code && (c.code.startsWith('SPN') || c.code.includes('FMI') || /^\d{2,5}\s*\/\s*\d{1,2}$/.test(c.code))
+    );
 
     // Format codes for AI
     const codesList = codes.map(c => `${c.code}: ${c.description || 'No description'}`).join('\n');
 
-    const prompt = `You are an expert automotive diagnostic technician. Analyze these OBD-II trouble codes and provide:
+    let prompt;
+    if (isJ1939) {
+      prompt = `You are an expert heavy-duty commercial vehicle diagnostic technician certified in SAE J1939 CAN bus diagnostics. You specialize in Class 6-8 trucks, semi-tractors, and commercial fleet vehicles.
+
+Analyze these J1939 SPN/FMI fault codes and provide:
+
+1. **Fault Summary**: What these SPN/FMI codes indicate about the vehicle's condition
+2. **Root Cause Analysis**: The most likely underlying causes, considering how these faults may be interrelated on a heavy-duty diesel platform
+3. **FMCSA/DOT Impact**: Whether any of these faults would result in an Out-of-Service (OOS) order during a roadside DOT inspection per FMCSR Part 396
+4. **Repair Priority**: Recommended repair actions prioritized by safety severity (critical safety / derate risk / monitor)
+5. **Fleet Impact**: Estimated downtime and whether the truck can safely continue operating or needs immediate shop attention
+6. **Related Systems**: Identify if faults span multiple ECUs (engine, transmission, ABS, aftertreatment) and how they may be connected
+
+J1939 Fault Codes (SPN/FMI format):
+${codesList}
+
+Provide a professional fleet-grade analysis. Reference specific SAE J1939 SPN definitions and FMI failure modes. Flag any codes that indicate imminent derate or shutdown conditions.`;
+    } else {
+      prompt = `You are an expert automotive diagnostic technician. Analyze these OBD-II trouble codes and provide:
 
 1. A summary of what these codes indicate
 2. The likely root causes
@@ -34,12 +57,14 @@ Diagnostic Trouble Codes:
 ${codesList}
 
 Provide a professional analysis that a vehicle inspector can share with their client.`;
+    }
 
     const analysis = await generateText(prompt, { temperature: 0.5, maxTokens: 2000 });
 
     res.json({
       analysis,
       codesAnalyzed: codes.length,
+      codeFormat: isJ1939 ? 'J1939 SPN/FMI' : 'OBD-II DTC',
       provider: 'AI (Gemini/DeepSeek/OpenAI)'
     });
   } catch (error) {
