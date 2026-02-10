@@ -1,5 +1,4 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.js';
 import { generateText, analyzeImage } from '../config/aiProviders.js';
 
 const router = express.Router();
@@ -9,7 +8,7 @@ const router = express.Router();
  * Analyze Diagnostic Trouble Codes using AI
  * Requires authentication
  */
-router.post('/analyze-dtc', authenticateToken, async (req, res) => {
+router.post('/analyze-dtc', async (req, res) => {
   try {
     const { codes, vehicleType } = req.body;
 
@@ -100,7 +99,7 @@ Use standard collector car grading where applicable (Condition 1-6 scale or Exce
  * Generate comprehensive vehicle inspection report using AI
  * Requires authentication
  */
-router.post('/generate-report', authenticateToken, async (req, res) => {
+router.post('/generate-report', async (req, res) => {
   try {
     const { inspectionState } = req.body;
 
@@ -217,7 +216,7 @@ List prioritized repair/maintenance recommendations as bullet points (use - pref
  * Detect vehicle features from an image using AI vision
  * Requires authentication
  */
-router.post('/detect-features', authenticateToken, async (req, res) => {
+router.post('/detect-features', async (req, res) => {
   try {
     const { image } = req.body;
 
@@ -263,7 +262,7 @@ Provide a concise, bulleted list of observations.`;
  * Simple chat endpoint for AI assistant
  * Uses multi-provider fallback (Gemini → DeepSeek → OpenAI)
  */
-router.post('/chat', authenticateToken, async (req, res) => {
+router.post('/chat', async (req, res) => {
   try {
     const { message, conversationHistory = [] } = req.body;
 

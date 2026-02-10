@@ -86,6 +86,15 @@ router.post('/signup', async (req, res) => {
       subscriptionStatus = 'pay_per_use';
     }
 
+    // Determine initial license status and features
+    const initialLicenseStatus = 'active';
+    const initialFeatures = {
+      ai_reports: true,
+      advanced_fraud: true,
+      ev_module: false,
+      lead_bot: false,
+    };
+
     // Create user
     const result = await query(
       `INSERT INTO users (
@@ -98,10 +107,12 @@ router.post('/signup', async (req, res) => {
         inspection_credits,
         subscription_status,
         subscription_expires_at,
+        license_status,
+        features_enabled,
         created_at
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-       RETURNING id, email, user_type, company_name, plan, inspection_credits, subscription_status, created_at`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+       RETURNING id, email, user_type, company_name, plan, inspection_credits, subscription_status, license_status, features_enabled, created_at`,
       [
         email.toLowerCase(),
         passwordHash,
@@ -111,7 +122,9 @@ router.post('/signup', async (req, res) => {
         plan,
         inspectionCredits,
         subscriptionStatus,
-        subscriptionExpiresAt
+        subscriptionExpiresAt,
+        initialLicenseStatus,
+        JSON.stringify(initialFeatures)
       ]
     );
 
@@ -132,8 +145,8 @@ router.post('/signup', async (req, res) => {
         plan: user.plan,
         inspectionCredits: user.inspection_credits,
         subscriptionStatus: user.subscription_status,
-        licenseStatus: 'active',
-        featuresEnabled: {}
+        licenseStatus: user.license_status,
+        featuresEnabled: user.features_enabled || {}
       },
       token
     });

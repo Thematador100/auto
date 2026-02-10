@@ -68,6 +68,9 @@ export const requireActiveLicense = async (req, res, next) => {
 
     const { license_status, license_expires_at, features_enabled } = result.rows[0];
 
+    // NULL or missing license_status is treated as 'active' (backwards-compatible for existing users)
+    const effectiveStatus = license_status || 'active';
+
     // Check if license has expired
     if (license_expires_at && new Date(license_expires_at) < new Date()) {
       return res.status(403).json({
@@ -79,7 +82,7 @@ export const requireActiveLicense = async (req, res, next) => {
     }
 
     // Check license status
-    if (license_status === 'suspended') {
+    if (effectiveStatus === 'suspended') {
       return res.status(403).json({
         error: 'License suspended',
         code: 'LICENSE_SUSPENDED',
@@ -88,7 +91,7 @@ export const requireActiveLicense = async (req, res, next) => {
       });
     }
 
-    if (license_status === 'cancelled') {
+    if (effectiveStatus === 'cancelled') {
       return res.status(403).json({
         error: 'License cancelled',
         code: 'LICENSE_CANCELLED',
@@ -97,7 +100,7 @@ export const requireActiveLicense = async (req, res, next) => {
       });
     }
 
-    if (license_status === 'inactive') {
+    if (effectiveStatus === 'inactive') {
       return res.status(403).json({
         error: 'License inactive',
         code: 'LICENSE_INACTIVE',
@@ -108,7 +111,7 @@ export const requireActiveLicense = async (req, res, next) => {
 
     // Attach features to request for downstream feature checks
     req.user.featuresEnabled = features_enabled || {};
-    req.user.licenseStatus = license_status;
+    req.user.licenseStatus = effectiveStatus;
 
     next();
   } catch (error) {
