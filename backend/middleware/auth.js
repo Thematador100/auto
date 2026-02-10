@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { query } from '../config/database.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -11,27 +12,23 @@ if (!JWT_SECRET) {
 
 /**
  * Middleware to verify JWT tokens and attach user info to request
- * Usage: Add this middleware to any route that requires authentication
  */
 export const authenticateToken = (req, res, next) => {
-  // Get token from Authorization header (Bearer token)
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // "Bearer TOKEN"
+  const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
     return res.status(401).json({ error: 'Authentication required' });
   }
 
   try {
-    // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Attach user info to request
     req.user = {
       id: decoded.userId,
       email: decoded.email,
       plan: decoded.plan,
-            userType: decoded.userType
+      userType: decoded.userType
     };
 
     console.log(`[Auth] User ${req.user.email} authenticated`);
@@ -45,6 +42,105 @@ export const authenticateToken = (req, res, next) => {
     }
     return res.status(500).json({ error: 'Authentication failed' });
   }
+};
+
+/**
+ * Middleware to enforce license status.
+ * Blocks access for users whose license is suspended, cancelled, or inactive.
+ * Admins bypass this check. Trial users are allowed through.
+ */
+export const requireActiveLicense = async (req, res, next) => {
+  try {
+    // Admins bypass license checks entirely
+    if (req.user.userType === 'admin') {
+      return next();
+    }
+
+    const result = await query(
+      `SELECT license_status, license_expires_at, features_enabled
+       FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const { license_status, license_expires_at, features_enabled } = result.rows[0];
+
+    // Check if license has expired
+    if (license_expires_at && new Date(license_expires_at) < new Date()) {
+      return res.status(403).json({
+        error: 'License expired',
+        code: 'LICENSE_EXPIRED',
+        message: 'Your license has expired. Please contact your administrator to renew.',
+        licenseStatus: 'expired'
+      });
+    }
+
+    // Check license status
+    if (license_status === 'suspended') {
+      return res.status(403).json({
+        error: 'License suspended',
+        code: 'LICENSE_SUSPENDED',
+        message: 'Your account has been suspended. Please contact your administrator.',
+        licenseStatus: 'suspended'
+      });
+    }
+
+    if (license_status === 'cancelled') {
+      return res.status(403).json({
+        error: 'License cancelled',
+        code: 'LICENSE_CANCELLED',
+        message: 'Your license has been cancelled. Please contact your administrator to reactivate.',
+        licenseStatus: 'cancelled'
+      });
+    }
+
+    if (license_status === 'inactive') {
+      return res.status(403).json({
+        error: 'License inactive',
+        code: 'LICENSE_INACTIVE',
+        message: 'Your account has not been activated yet. Please contact your administrator.',
+        licenseStatus: 'inactive'
+      });
+    }
+
+    // Attach features to request for downstream feature checks
+    req.user.featuresEnabled = features_enabled || {};
+    req.user.licenseStatus = license_status;
+
+    next();
+  } catch (error) {
+    console.error('[Auth] License check error:', error);
+    res.status(500).json({ error: 'License verification failed' });
+  }
+};
+
+/**
+ * Middleware factory to require a specific feature flag.
+ * Usage: requireFeature('ev_module')
+ */
+export const requireFeature = (featureName) => {
+  return (req, res, next) => {
+    // Admins bypass feature checks
+    if (req.user.userType === 'admin') {
+      return next();
+    }
+
+    const features = req.user.featuresEnabled || {};
+
+    if (!features[featureName]) {
+      return res.status(403).json({
+        error: 'Feature not available',
+        code: 'FEATURE_DISABLED',
+        message: `The "${featureName}" feature is not enabled on your license. Contact your administrator to upgrade.`,
+        feature: featureName
+      });
+    }
+
+    next();
+  };
 };
 
 /**
@@ -78,4 +174,4 @@ export const generateToken = (userId, email, plan, userType) => {
   );
 };
 
-export default { authenticateToken, requirePlan, generateToken };
+export default { authenticateToken, requireActiveLicense, requireFeature, requirePlan, generateToken };

@@ -5,6 +5,7 @@ import { LoginPage } from './components/LoginPage';
 import { SignupPage } from './components/SignupPage';
 import { AdminDashboard } from './components/AdminDashboard';
 import { DIYDashboard } from './components/DIYDashboard';
+import { LicenseGate } from './components/LicenseGate';
 import { InstallAppButton } from './components/InstallAppButton';
 import './index.css';
 
@@ -61,7 +62,7 @@ const App: React.FC = () => {
   // User is logged in - route based on user type
 
   if (user.userType === 'admin') {
-    // Admin users get the enterprise admin panel
+    // Admin users get the enterprise admin panel (no license gate - admins always have access)
     return (
       <>
         <InstallAppButton />
@@ -70,34 +71,24 @@ const App: React.FC = () => {
     );
   }
 
-  if (user.userType === 'diy') {
-    // DIY users can toggle between dashboard and inspection flow
-    if (showDIYInspection) {
-      return (
-        <>
-          <InstallAppButton />
-          <MainApp user={user} onLogout={logout} />
-        </>
-      );
-    }
-    return (
-      <>
-        <InstallAppButton />
-        <DIYDashboard
-          user={user}
-          onLogout={logout}
-          onStartInspection={() => setShowDIYInspection(true)}
-        />
-      </>
-    );
-  }
-
-  // Pro users get the full MainApp (professional inspector interface)
+  // All non-admin users go through the license gate
   return (
-    <>
+    <LicenseGate user={user} onLogout={logout}>
       <InstallAppButton />
-      <MainApp user={user} onLogout={logout} />
-    </>
+      {user.userType === 'diy' ? (
+        showDIYInspection ? (
+          <MainApp user={user} onLogout={logout} />
+        ) : (
+          <DIYDashboard
+            user={user}
+            onLogout={logout}
+            onStartInspection={() => setShowDIYInspection(true)}
+          />
+        )
+      ) : (
+        <MainApp user={user} onLogout={logout} />
+      )}
+    </LicenseGate>
   );
 };
 

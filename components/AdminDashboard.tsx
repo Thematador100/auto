@@ -24,6 +24,13 @@ interface UserRecord {
   inspection_credits: number;
   subscription_status: string;
   created_at: string;
+  license_status: string | null;
+  license_type: string | null;
+  territory: string | null;
+  revenue_share_percentage: number | null;
+  features_enabled: Record<string, boolean> | null;
+  license_issued_at: string | null;
+  license_expires_at: string | null;
 }
 
 interface CreateUserForm {
@@ -51,6 +58,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'pro' | 'diy'>('all');
+  const [filterLicense, setFilterLicense] = useState<string>('all');
 
   // Modals and forms
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -69,8 +77,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     territory: ''
   });
 
+  const [showLicenseModal, setShowLicenseModal] = useState(false);
+  const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+
   const [newCredits, setNewCredits] = useState<number>(0);
   const [newPassword, setNewPassword] = useState('');
+  const [editFeatures, setEditFeatures] = useState<Record<string, boolean>>({
+    ev_module: false,
+    advanced_fraud: true,
+    ai_reports: true,
+    lead_bot: false,
+  });
   const [actionMessage, setActionMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
@@ -102,7 +119,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     setIsLoading(true);
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const response = await fetch(`${BACKEND_URL}/api/admin/users?type=${filterType}`, {
+      const licenseParam = filterLicense !== 'all' ? `&licenseStatus=${filterLicense}` : '';
+      const response = await fetch(`${BACKEND_URL}/api/admin/users?type=${filterType}${licenseParam}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -261,6 +279,67 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     }
   };
 
+  // Toggle license status (activate / suspend)
+  const handleToggleLicense = async (targetUser: UserRecord, newStatus: string) => {
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${BACKEND_URL}/api/admin/licenses/${targetUser.id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('success', `License ${newStatus} for ${targetUser.email}`);
+        fetchUsers();
+      } else {
+        showMessage('error', data.error || 'Failed to update license');
+      }
+    } catch (error) {
+      showMessage('error', 'Network error updating license');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update feature flags
+  const handleUpdateFeatures = async () => {
+    if (!selectedUser) return;
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const response = await fetch(`${BACKEND_URL}/api/admin/licenses/${selectedUser.id}/features`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ features: editFeatures }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('success', `Features updated for ${selectedUser.email}`);
+        setShowFeaturesModal(false);
+        setSelectedUser(null);
+        fetchUsers();
+      } else {
+        showMessage('error', data.error || 'Failed to update features');
+      }
+    } catch (error) {
+      showMessage('error', 'Network error updating features');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchStats();
   }, []);
@@ -269,7 +348,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     if (activeTab === 'customers' || activeTab === 'staff') {
       fetchUsers();
     }
-  }, [activeTab, filterType]);
+  }, [activeTab, filterType, filterLicense]);
 
   // Filter users by search query
   const filteredUsers = users.filter((u) =>
@@ -485,7 +564,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
 
             {/* Filters */}
             <div className="bg-dark-card border border-dark-border rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Search */}
                 <div className="md:col-span-2">
                   <label className="block text-sm text-medium-text mb-2">Search Users</label>
@@ -500,15 +579,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
 
                 {/* Type Filter */}
                 <div>
-                  <label className="block text-sm text-medium-text mb-2">Filter by Type</label>
+                  <label className="block text-sm text-medium-text mb-2">User Type</label>
                   <select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value as any)}
                     className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
                   >
-                    <option value="all">All Users</option>
-                    <option value="pro">Pro Inspectors Only</option>
-                    <option value="diy">DIY Users Only</option>
+                    <option value="all">All Types</option>
+                    <option value="pro">Pro Inspectors</option>
+                    <option value="diy">DIY Users</option>
+                  </select>
+                </div>
+
+                {/* License Status Filter */}
+                <div>
+                  <label className="block text-sm text-medium-text mb-2">License Status</label>
+                  <select
+                    value={filterLicense}
+                    onChange={(e) => setFilterLicense(e.target.value)}
+                    className="w-full bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="trial">Trial</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="inactive">Inactive</option>
                   </select>
                 </div>
               </div>
@@ -525,85 +621,132 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                   <table className="w-full">
                     <thead className="bg-dark-bg">
                       <tr>
-                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">User</th>
-                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Type</th>
-                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Plan</th>
-                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Credits</th>
-                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Status</th>
-                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Joined</th>
-                        <th className="text-left px-6 py-3 text-sm font-semibold text-medium-text">Actions</th>
+                        <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">User</th>
+                        <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Type</th>
+                        <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">License</th>
+                        <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Plan</th>
+                        <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Territory</th>
+                        <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Joined</th>
+                        <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-dark-border">
-                      {filteredUsers.map((u) => (
+                      {filteredUsers.map((u) => {
+                        const licenseStatus = u.license_status || 'none';
+                        const isActive = licenseStatus === 'active' || licenseStatus === 'trial';
+                        const isSuspended = licenseStatus === 'suspended';
+                        const isCancelled = licenseStatus === 'cancelled';
+
+                        return (
                         <tr key={u.id} className="hover:bg-dark-bg transition-colors">
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-4">
                             <div className="text-light-text font-medium">{u.email}</div>
                             {u.company_name && (
                               <div className="text-sm text-medium-text">{u.company_name}</div>
                             )}
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-4">
                             <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
                               u.user_type === 'pro' ? 'bg-blue-900/50 text-blue-300' : 'bg-green-900/50 text-green-300'
                             }`}>
                               {u.user_type?.toUpperCase()}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-medium-text">{u.plan || 'N/A'}</td>
-                          <td className="px-6 py-4 text-medium-text">
-                            {u.inspection_credits === -1 ? '∞ Unlimited' : u.inspection_credits}
-                          </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-4">
                             <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
-                              u.subscription_status === 'active' || u.subscription_status === 'trial'
-                                ? 'bg-green-900/50 text-green-300'
-                                : 'bg-yellow-900/50 text-yellow-300'
+                              isActive ? 'bg-green-900/50 text-green-300' :
+                              isSuspended ? 'bg-red-900/50 text-red-300' :
+                              isCancelled ? 'bg-gray-900/50 text-gray-400' :
+                              'bg-yellow-900/50 text-yellow-300'
                             }`}>
-                              {u.subscription_status || 'N/A'}
+                              {licenseStatus === 'none' ? 'No License' : licenseStatus.toUpperCase()}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-medium-text text-sm">
+                          <td className="px-4 py-4 text-medium-text text-sm">{u.plan || 'N/A'}</td>
+                          <td className="px-4 py-4 text-medium-text text-sm">{u.territory || '-'}</td>
+                          <td className="px-4 py-4 text-medium-text text-sm">
                             {new Date(u.created_at).toLocaleDateString()}
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex gap-2">
+                          <td className="px-4 py-4">
+                            <div className="flex flex-wrap gap-1">
+                              {/* License Toggle */}
+                              {isActive ? (
+                                <button
+                                  onClick={() => handleToggleLicense(u, 'suspended')}
+                                  className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors"
+                                  title="Suspend license - blocks all access"
+                                >
+                                  Suspend
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleToggleLicense(u, 'active')}
+                                  className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-semibold transition-colors"
+                                  title="Activate license - restores access"
+                                >
+                                  Activate
+                                </button>
+                              )}
+
+                              {/* Features */}
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setEditFeatures(u.features_enabled || {
+                                    ev_module: false,
+                                    advanced_fraud: true,
+                                    ai_reports: true,
+                                    lead_bot: false,
+                                  });
+                                  setShowFeaturesModal(true);
+                                }}
+                                className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-semibold transition-colors"
+                                title="Manage feature flags"
+                              >
+                                Features
+                              </button>
+
+                              {/* Credits */}
                               <button
                                 onClick={() => {
                                   setSelectedUser(u);
                                   setNewCredits(u.inspection_credits);
                                   setShowEditCreditsModal(true);
                                 }}
-                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-colors"
+                                className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold transition-colors"
                                 title="Edit Credits"
                               >
                                 Credits
                               </button>
+
+                              {/* Password */}
                               <button
                                 onClick={() => {
                                   setSelectedUser(u);
                                   setNewPassword('');
                                   setShowResetPasswordModal(true);
                                 }}
-                                className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-semibold transition-colors"
+                                className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-semibold transition-colors"
                                 title="Reset Password"
                               >
                                 Password
                               </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedUser(u);
-                                  setShowDeleteConfirm(true);
-                                }}
-                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors"
-                                title="Delete User"
-                              >
-                                Delete
-                              </button>
+
+                              {/* Cancel License */}
+                              {!isCancelled && (
+                                <button
+                                  onClick={() => handleToggleLicense(u, 'cancelled')}
+                                  className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs font-semibold transition-colors"
+                                  title="Cancel license permanently"
+                                >
+                                  Cancel
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1013,7 +1156,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
       {showDeleteConfirm && selectedUser && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-dark-card border border-red-600 rounded-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-red-400 mb-4">⚠️ Delete User</h3>
+            <h3 className="text-xl font-bold text-red-400 mb-4">Delete User</h3>
             <p className="text-light-text mb-2">
               Are you sure you want to delete this user?
             </p>
@@ -1033,6 +1176,65 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
               <button
                 onClick={() => {
                   setShowDeleteConfirm(false);
+                  setSelectedUser(null);
+                }}
+                className="px-6 py-2 bg-dark-bg border border-dark-border text-light-text rounded-lg font-semibold hover:border-primary transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feature Flags Modal */}
+      {showFeaturesModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-card border border-purple-500 rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-light-text mb-2">Feature Flags</h3>
+            <p className="text-medium-text mb-6 text-sm">
+              Control which features are enabled for <span className="text-light-text font-semibold">{selectedUser.email}</span>
+            </p>
+
+            <div className="space-y-4 mb-6">
+              {[
+                { key: 'ev_module', label: 'EV Module', description: 'Electric vehicle inspection support' },
+                { key: 'advanced_fraud', label: 'Advanced Fraud Detection', description: 'AI-powered fraud analysis' },
+                { key: 'ai_reports', label: 'AI Reports', description: 'AI-generated inspection reports' },
+                { key: 'lead_bot', label: 'Lead Bot', description: 'Automated lead generation' },
+              ].map(feature => (
+                <div key={feature.key} className="flex items-center justify-between bg-dark-bg rounded-lg p-3">
+                  <div>
+                    <div className="text-light-text font-medium text-sm">{feature.label}</div>
+                    <div className="text-medium-text text-xs">{feature.description}</div>
+                  </div>
+                  <button
+                    onClick={() => setEditFeatures(prev => ({ ...prev, [feature.key]: !prev[feature.key] }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      editFeatures[feature.key] ? 'bg-green-500' : 'bg-gray-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        editFeatures[feature.key] ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={handleUpdateFeatures}
+                disabled={isLoading}
+                className="flex-1 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold disabled:opacity-50 transition-colors"
+              >
+                {isLoading ? 'Saving...' : 'Save Features'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowFeaturesModal(false);
                   setSelectedUser(null);
                 }}
                 className="px-6 py-2 bg-dark-bg border border-dark-border text-light-text rounded-lg font-semibold hover:border-primary transition-colors"

@@ -9,6 +9,8 @@ export interface User {
   companyName?: string;
   inspectionCredits?: number;
   subscriptionStatus?: string;
+  licenseStatus?: 'active' | 'trial' | 'suspended' | 'cancelled' | 'inactive' | 'expired';
+  featuresEnabled?: Record<string, boolean>;
 }
 
 // Vehicle data types

@@ -131,7 +131,9 @@ router.post('/signup', async (req, res) => {
         companyName: user.company_name,
         plan: user.plan,
         inspectionCredits: user.inspection_credits,
-        subscriptionStatus: user.subscription_status
+        subscriptionStatus: user.subscription_status,
+        licenseStatus: 'active',
+        featuresEnabled: {}
       },
       token
     });
@@ -154,10 +156,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    // Find user with Phase 2 fields
+    // Find user with Phase 2 fields + license data
     const result = await query(
       `SELECT id, email, password_hash, user_type, company_name, plan,
-              inspection_credits, subscription_status, subscription_expires_at
+              inspection_credits, subscription_status, subscription_expires_at,
+              license_status, license_expires_at, features_enabled
        FROM users WHERE email = $1`,
       [email.toLowerCase()]
     );
@@ -206,7 +209,10 @@ router.post('/login', async (req, res) => {
         inspectionCredits: user.inspection_credits !== null ? user.inspection_credits : 0,
         subscriptionStatus: user.subscription_status || 'inactive',
         subscriptionActive: isSubscriptionActive,
-        subscriptionExpiresAt: user.subscription_expires_at || null
+        subscriptionExpiresAt: user.subscription_expires_at || null,
+        licenseStatus: user.license_status || 'active',
+        licenseExpiresAt: user.license_expires_at || null,
+        featuresEnabled: user.features_enabled || {}
       },
       token
     });
@@ -261,6 +267,53 @@ router.get('/me', async (req, res) => {
   } catch (error) {
     console.error('[Auth] Get user error:', error);
     res.status(500).json({ error: 'Failed to get user info' });
+  }
+});
+
+/**
+ * GET /api/auth/license-status
+ * Check current license status (for frontend license gate)
+ */
+router.get('/license-status', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { authenticateToken } = await import('../middleware/auth.js');
+
+    authenticateToken(req, res, async () => {
+      const result = await query(
+        `SELECT license_status, license_expires_at, features_enabled, user_type
+         FROM users WHERE id = $1`,
+        [req.user.id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const user = result.rows[0];
+
+      // Check if license has expired
+      let effectiveStatus = user.license_status || 'active';
+      if (user.license_expires_at && new Date(user.license_expires_at) < new Date()) {
+        effectiveStatus = 'expired';
+      }
+
+      res.json({
+        licenseStatus: effectiveStatus,
+        licenseExpiresAt: user.license_expires_at,
+        featuresEnabled: user.features_enabled || {},
+        userType: user.user_type
+      });
+    });
+  } catch (error) {
+    console.error('[Auth] License status check error:', error);
+    res.status(500).json({ error: 'Failed to check license status' });
   }
 });
 
