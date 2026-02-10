@@ -11,6 +11,7 @@ import reportRoutes from './routes/reports.js';
 import fraudRoutes from './routes/fraud.js';
 import commonIssuesRoutes from './routes/commonIssues.js';
 import adminRoutes from './routes/admin.js';
+import { authenticateToken, requireActiveLicense } from './middleware/auth.js';
 import { runMigrations } from './utils/runMigrations.js';
 
 dotenv.config();
@@ -52,13 +53,14 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/inspections', inspectionRoutes);
-app.use('/api/photos', photoRoutes);
-app.use('/api/reports', reportRoutes); // Report routes: /api/reports/email
-app.use('/api/fraud', fraudRoutes); // Fraud detection: /api/fraud/analyze-odometer, /api/fraud/analyze-flood
-app.use('/api/common-issues', commonIssuesRoutes); // Common issues: /api/common-issues?make=Honda&model=Civic&year=2017
-app.use('/api/admin', adminRoutes); // Admin routes: /api/admin/stats, /api/admin/users (requires admin role)
-app.use('/api', aiRoutes); // AI routes: /api/analyze-dtc, /api/generate-report, /api/detect-features
+// Protected routes - require valid token + active license
+app.use('/api/inspections', authenticateToken, requireActiveLicense, inspectionRoutes);
+app.use('/api/photos', authenticateToken, requireActiveLicense, photoRoutes);
+app.use('/api/reports', authenticateToken, requireActiveLicense, reportRoutes);
+app.use('/api/fraud', authenticateToken, requireActiveLicense, fraudRoutes);
+app.use('/api/common-issues', commonIssuesRoutes); // Public reference data
+app.use('/api/admin', adminRoutes); // Admin routes have their own auth middleware
+app.use('/api', authenticateToken, requireActiveLicense, aiRoutes); // AI routes: /api/analyze-dtc, /api/generate-report
 
 // Error handling middleware
 app.use((err, req, res, next) => {

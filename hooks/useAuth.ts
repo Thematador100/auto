@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+
 /**
- * Phase 2C: Real authentication hook with API integration
+ * Phase 2C: Real authentication hook with license enforcement
  */
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -16,12 +18,13 @@ export const useAuth = () => {
 
       if (token && storedUser) {
         try {
-          // Parse stored user
           const parsedUser = JSON.parse(storedUser);
           setUser(parsedUser);
+
+          // Verify license status from backend (non-blocking)
+          refreshLicenseStatus(token, parsedUser);
         } catch (error) {
           console.error('Failed to parse stored user:', error);
-          // Clear invalid data
           localStorage.removeItem('token');
           localStorage.removeItem('user');
           sessionStorage.removeItem('token');
@@ -35,10 +38,34 @@ export const useAuth = () => {
     checkAuth();
   }, []);
 
+  // Refresh license status from backend
+  const refreshLicenseStatus = async (token: string, currentUser: User) => {
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/auth/license-status`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const updatedUser = {
+          ...currentUser,
+          licenseStatus: data.licenseStatus,
+          featuresEnabled: data.featuresEnabled
+        };
+        setUser(updatedUser);
+
+        // Update stored user
+        const storage = localStorage.getItem('token') ? localStorage : sessionStorage;
+        storage.setItem('user', JSON.stringify(updatedUser));
+      }
+    } catch (error) {
+      // Silently fail - user can still use cached data
+      console.warn('Failed to refresh license status:', error);
+    }
+  };
+
   // Login function
   const login = (token: string, userData: any) => {
-    // Store in localStorage (already handled by LoginPage/SignupPage)
-    // Just update state
     setUser({
       id: userData.id,
       email: userData.email,
@@ -47,20 +74,27 @@ export const useAuth = () => {
       companyName: userData.companyName,
       inspectionCredits: userData.inspectionCredits,
       subscriptionStatus: userData.subscriptionStatus,
+      licenseStatus: userData.licenseStatus || 'active',
+      featuresEnabled: userData.featuresEnabled || {},
     });
   };
 
   // Logout function
   const logout = () => {
-    // Clear all storage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('user');
-
-    // Clear state
     setUser(null);
   };
 
-  return { user, login, logout, isLoading };
+  // Check license - callable by components
+  const checkLicense = useCallback(async () => {
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (token && user) {
+      await refreshLicenseStatus(token, user);
+    }
+  }, [user]);
+
+  return { user, login, logout, isLoading, checkLicense };
 };

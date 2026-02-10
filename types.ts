@@ -9,6 +9,8 @@ export interface User {
   companyName?: string;
   inspectionCredits?: number;
   subscriptionStatus?: string;
+  licenseStatus?: 'active' | 'trial' | 'suspended' | 'cancelled' | 'inactive' | 'expired';
+  featuresEnabled?: Record<string, boolean>;
 }
 
 // Vehicle data types
@@ -39,9 +41,12 @@ export interface InspectionAudio {
   mimeType: string;
 }
 
+export type ConditionRating = 'pass' | 'fail' | 'concern' | 'na' | 'unchecked';
+
 export interface InspectionChecklistItem {
   item: string;
   checked: boolean;
+  condition: ConditionRating;
   notes: string;
   photos: InspectionPhoto[];
   audio: InspectionAudio | null;
@@ -55,6 +60,7 @@ export interface InspectionState {
   vehicle: Vehicle;
   vehicleType: keyof typeof import('./constants').VEHICLE_INSPECTION_TEMPLATES;
   checklist: InspectionSection;
+  complianceChecklist: InspectionSection;
   overallNotes: string;
   odometer: string;
 }
@@ -93,25 +99,32 @@ export interface TheftRecord {
 }
 
 // Final Report types
+export interface ReportSectionItem {
+  check: string;
+  status: 'Pass' | 'Fail' | 'Concern' | 'N/A';
+  details: string;
+  photos: { category: string; url: string; notes?: string }[];
+}
+
+export interface ReportSection {
+  title: string;
+  notes: string;
+  items: ReportSectionItem[];
+}
+
 export interface CompletedReport {
   id: string;
   date: string;
   vehicle: Vehicle;
+  vehicleType: string;
+  odometer: string;
   summary: {
     overallCondition: string;
     keyFindings: string[];
     recommendations: string[];
   };
-  sections: {
-    title: string;
-    notes: string;
-    items: {
-      check: string;
-      status: 'Pass' | 'Fail' | 'N/A';
-      details: string;
-      photos: { category: string; url: string; notes?: string }[];
-    }[];
-  }[];
+  sections: ReportSection[];
+  complianceSections: ReportSection[];
   vehicleHistory: VehicleHistoryReport;
   safetyRecalls: SafetyRecall[];
   theftAndSalvage: TheftRecord;

@@ -1,5 +1,4 @@
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.js';
 import { generateText, analyzeImage } from '../config/aiProviders.js';
 
 const router = express.Router();
@@ -9,20 +8,43 @@ const router = express.Router();
  * Analyze Diagnostic Trouble Codes using AI
  * Requires authentication
  */
-router.post('/analyze-dtc', authenticateToken, async (req, res) => {
+router.post('/analyze-dtc', async (req, res) => {
   try {
-    const { codes } = req.body;
+    const { codes, vehicleType } = req.body;
 
     if (!codes || !Array.isArray(codes) || codes.length === 0) {
       return res.status(400).json({ error: 'Codes array is required' });
     }
 
-    console.log(`[AI] Analyzing ${codes.length} DTC codes for user ${req.user.email}`);
+    console.log(`[AI] Analyzing ${codes.length} DTC codes for user ${req.user.email} (type: ${vehicleType || 'Standard'})`);
+
+    // Detect if these are J1939 SPN/FMI codes (commercial trucks) or standard OBD-II DTCs
+    const isJ1939 = vehicleType === 'Commercial' || codes.some(c =>
+      c.code && (c.code.startsWith('SPN') || c.code.includes('FMI') || /^\d{2,5}\s*\/\s*\d{1,2}$/.test(c.code))
+    );
 
     // Format codes for AI
     const codesList = codes.map(c => `${c.code}: ${c.description || 'No description'}`).join('\n');
 
-    const prompt = `You are an expert automotive diagnostic technician. Analyze these OBD-II trouble codes and provide:
+    let prompt;
+    if (isJ1939) {
+      prompt = `You are an expert heavy-duty commercial vehicle diagnostic technician certified in SAE J1939 CAN bus diagnostics. You specialize in Class 6-8 trucks, semi-tractors, and commercial fleet vehicles.
+
+Analyze these J1939 SPN/FMI fault codes and provide:
+
+1. **Fault Summary**: What these SPN/FMI codes indicate about the vehicle's condition
+2. **Root Cause Analysis**: The most likely underlying causes, considering how these faults may be interrelated on a heavy-duty diesel platform
+3. **FMCSA/DOT Impact**: Whether any of these faults would result in an Out-of-Service (OOS) order during a roadside DOT inspection per FMCSR Part 396
+4. **Repair Priority**: Recommended repair actions prioritized by safety severity (critical safety / derate risk / monitor)
+5. **Fleet Impact**: Estimated downtime and whether the truck can safely continue operating or needs immediate shop attention
+6. **Related Systems**: Identify if faults span multiple ECUs (engine, transmission, ABS, aftertreatment) and how they may be connected
+
+J1939 Fault Codes (SPN/FMI format):
+${codesList}
+
+Provide a professional fleet-grade analysis. Reference specific SAE J1939 SPN definitions and FMI failure modes. Flag any codes that indicate imminent derate or shutdown conditions.`;
+    } else {
+      prompt = `You are an expert automotive diagnostic technician. Analyze these OBD-II trouble codes and provide:
 
 1. A summary of what these codes indicate
 2. The likely root causes
@@ -34,12 +56,14 @@ Diagnostic Trouble Codes:
 ${codesList}
 
 Provide a professional analysis that a vehicle inspector can share with their client.`;
+    }
 
     const analysis = await generateText(prompt, { temperature: 0.5, maxTokens: 2000 });
 
     res.json({
       analysis,
       codesAnalyzed: codes.length,
+      codeFormat: isJ1939 ? 'J1939 SPN/FMI' : 'OBD-II DTC',
       provider: 'AI (Gemini/DeepSeek/OpenAI)'
     });
   } catch (error) {
@@ -48,12 +72,34 @@ Provide a professional analysis that a vehicle inspector can share with their cl
   }
 });
 
+// Vehicle-type-specific system instructions for AI report generation
+const VEHICLE_TYPE_PROMPTS = {
+  Commercial: `You are a certified FMCSA commercial vehicle inspector generating a DOT-compliant inspection report for an 18-wheeler / commercial truck.
+Focus on Federal Motor Carrier Safety Regulations compliance. Flag any items that would result in an Out-of-Service (OOS) order.
+Include sections for: Air brake system integrity, tire/wheel compliance (steer >4/32", drive >2/32"), DOT lighting and reflective tape, fifth wheel coupling, frame integrity, and safety equipment.
+Reference FMCSR Part 396 (Inspection, Repair, and Maintenance) standards where applicable.`,
+
+  RV: `You are a certified RV inspector generating a comprehensive habitability and mechanical inspection report for a recreational vehicle (motorhome or travel trailer).
+Focus on both roadworthiness AND livability. RV-specific concerns include: LP gas system safety (leak testing, regulator condition), water system integrity (freshwater, gray, black tanks), electrical systems (shore power, inverter/converter, GFCI), roof and sidewall condition (delamination, water intrusion), slide-out mechanisms, and all safety detectors (smoke, CO, LP).
+Reference NFPA 1192 (Standard on Recreational Vehicles) and RVIA standards where applicable.`,
+
+  Classic: `You are a certified classic/vintage vehicle appraiser generating a detailed condition and authenticity report for a collector car.
+Focus on: Numbers matching verification (VIN, engine, transmission casting numbers), originality assessment (paint, interior, drivetrain components), rust and body integrity (hidden rust behind panels, bondo/filler detection), and provenance documentation (chain of ownership, build sheets, restoration records).
+Use standard collector car grading where applicable (Condition 1-6 scale or Excellent/Good/Fair/Poor). Note any deviations from factory specifications.`,
+
+  Standard: `You are a professional automotive inspector generating a comprehensive pre-purchase or condition inspection report for a standard passenger vehicle.`,
+
+  EV: `You are a professional EV inspector generating a comprehensive inspection report for an electric vehicle. Focus on battery State of Health (SoH), charging system, thermal management, regenerative braking, and ADAS systems.`,
+
+  Motorcycle: `You are a professional motorcycle inspector generating a comprehensive inspection report. Focus on frame integrity, tire condition and age, brake system, chain/belt/shaft drive, and electrical systems.`,
+};
+
 /**
  * POST /api/generate-report
  * Generate comprehensive vehicle inspection report using AI
  * Requires authentication
  */
-router.post('/generate-report', authenticateToken, async (req, res) => {
+router.post('/generate-report', async (req, res) => {
   try {
     const { inspectionState } = req.body;
 
@@ -63,58 +109,99 @@ router.post('/generate-report', authenticateToken, async (req, res) => {
 
     console.log(`[AI] Generating inspection report for user ${req.user.email}`);
 
-    const { vehicleInfo, checklist, odometer, overallNotes } = inspectionState;
+    // Support both field naming conventions (vehicle or vehicleInfo)
+    const vehicle = inspectionState.vehicle || inspectionState.vehicleInfo || {};
+    const vehicleType = inspectionState.vehicleType || vehicle.vehicleType || 'Standard';
+    const checklist = inspectionState.checklist;
+    const complianceChecklist = inspectionState.complianceChecklist;
+    const odometer = inspectionState.odometer;
+    const overallNotes = inspectionState.overallNotes;
+
+    // Get vehicle-type-specific system prompt
+    const systemInstruction = VEHICLE_TYPE_PROMPTS[vehicleType] || VEHICLE_TYPE_PROMPTS.Standard;
 
     // Build structured prompt
-    let prompt = `You are a professional automotive inspector. Generate a comprehensive vehicle inspection report based on the following data:
+    let prompt = `${systemInstruction}
+
+Generate a comprehensive inspection report based on the following data:
 
 **Vehicle Information:**
-- Year: ${vehicleInfo?.year || 'Unknown'}
-- Make: ${vehicleInfo?.make || 'Unknown'}
-- Model: ${vehicleInfo?.model || 'Unknown'}
-- VIN: ${vehicleInfo?.vin || 'Not provided'}
-- Type: ${vehicleInfo?.vehicleType || 'Standard'}
+- Year: ${vehicle.year || 'Unknown'}
+- Make: ${vehicle.make || 'Unknown'}
+- Model: ${vehicle.model || 'Unknown'}
+- VIN: ${vehicle.vin || 'Not provided'}
+- Vehicle Type: ${vehicleType}
 - Odometer: ${odometer || 'Not recorded'} miles
 
 **Inspection Findings:**
 `;
 
-    // Process checklist data
-    if (checklist && typeof checklist === 'object') {
-      for (const [category, items] of Object.entries(checklist)) {
+    // Process main checklist data - handle both field naming conventions
+    const processChecklist = (checklistData, sectionLabel) => {
+      if (!checklistData || typeof checklistData !== 'object') return;
+
+      if (sectionLabel) {
+        prompt += `\n--- ${sectionLabel} ---\n`;
+      }
+
+      for (const [category, items] of Object.entries(checklistData)) {
         if (Array.isArray(items)) {
-          const failedItems = items.filter(item => item.status === 'fail' || item.notes);
-          if (failedItems.length > 0) {
-            prompt += `\n**${category}:**\n`;
-            failedItems.forEach(item => {
-              prompt += `- ${item.name}: ${item.status === 'fail' ? 'FAILED' : 'PASS'}`;
-              if (item.notes) prompt += ` - ${item.notes}`;
-              prompt += '\n';
-            });
-          }
+          prompt += `\n**${category}:**\n`;
+          items.forEach(item => {
+            // Support both naming conventions: item.item or item.name, item.condition or item.status
+            const itemName = item.item || item.name || 'Unknown item';
+            const condition = item.condition || item.status || (item.checked ? 'pass' : 'unchecked');
+            const conditionLabel = condition === 'fail' ? 'FAILED' :
+                                   condition === 'concern' ? 'CONCERN' :
+                                   condition === 'pass' ? 'PASS' :
+                                   condition === 'na' ? 'N/A' : 'NOT CHECKED';
+            prompt += `- ${itemName}: ${conditionLabel}`;
+            if (item.notes) prompt += ` — ${item.notes}`;
+            prompt += '\n';
+          });
         }
       }
+    };
+
+    processChecklist(checklist, null);
+    if (complianceChecklist && Object.keys(complianceChecklist).length > 0) {
+      const complianceLabel = vehicleType === 'Commercial' ? 'DOT / FMCSA Compliance Checks' :
+                              vehicleType === 'RV' ? 'Habitability & Safety System Checks' :
+                              vehicleType === 'Classic' ? 'Authenticity & Provenance Checks' :
+                              'Additional Compliance Checks';
+      processChecklist(complianceChecklist, complianceLabel);
     }
 
     if (overallNotes) {
       prompt += `\n**Inspector's Overall Notes:**\n${overallNotes}\n`;
     }
 
-    prompt += `\n**Report Requirements:**
-1. Executive Summary (2-3 sentences)
-2. Critical Issues (immediate attention required)
-3. Recommended Repairs (near-term, within 6 months)
-4. Future Maintenance (cosmetic or long-term)
-5. Overall Vehicle Condition Assessment (Excellent/Good/Fair/Poor)
-6. Estimated repair priorities and general cost categories
+    prompt += `\n**Report Format Requirements:**
+Please structure the report with these exact headers (use ### markdown headers):
 
-Format the report professionally for the inspector to share with their client.`;
+### 1. Overall Condition Assessment
+Provide a 2-3 sentence executive summary of the vehicle's overall condition.
+
+### 2. Key Findings
+List the most important findings as bullet points (use - prefix). Include all failures and concerns.
+
+### 3. Recommendations
+List prioritized repair/maintenance recommendations as bullet points (use - prefix). Order by urgency.`;
+
+    if (vehicleType === 'Commercial') {
+      prompt += `\n\nAlso include a DOT Compliance Summary noting any items that would trigger an Out-of-Service order, and air brake test results assessment.`;
+    } else if (vehicleType === 'RV') {
+      prompt += `\n\nAlso include a Habitability Assessment covering LP gas safety, water system integrity, electrical system condition, and any water intrusion concerns.`;
+    } else if (vehicleType === 'Classic') {
+      prompt += `\n\nAlso include an Authenticity Score or Assessment indicating how original the vehicle is, note any non-original components, and provide a condition grade (1-6 scale where 1 is Concours/Perfect and 6 is Parts Car).`;
+    }
 
     const report = await generateText(prompt, { temperature: 0.6, maxTokens: 3000 });
 
     res.json({
       summary: report,
-      vehicleInfo,
+      vehicleInfo: vehicle,
+      vehicleType,
       odometer,
       generatedAt: new Date().toISOString()
     });
@@ -129,7 +216,7 @@ Format the report professionally for the inspector to share with their client.`;
  * Detect vehicle features from an image using AI vision
  * Requires authentication
  */
-router.post('/detect-features', authenticateToken, async (req, res) => {
+router.post('/detect-features', async (req, res) => {
   try {
     const { image } = req.body;
 
@@ -175,7 +262,7 @@ Provide a concise, bulleted list of observations.`;
  * Simple chat endpoint for AI assistant
  * Uses multi-provider fallback (Gemini → DeepSeek → OpenAI)
  */
-router.post('/chat', authenticateToken, async (req, res) => {
+router.post('/chat', async (req, res) => {
   try {
     const { message, conversationHistory = [] } = req.body;
 
