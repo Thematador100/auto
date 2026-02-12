@@ -9,8 +9,9 @@ import { ChatBot } from './ChatBot';
 import { FinalizeScreen } from './FinalizeScreen';
 import { ReportView } from './ReportView';
 import { UserProfile } from './UserProfile';
+import { ManualPage } from './ManualPage';
 
-type View = 'Dashboard' | 'Inspection' | 'Diagnostics' | 'Assistant' | 'Profile' | 'Finalize' | 'Report';
+type View = 'Dashboard' | 'Inspection' | 'Diagnostics' | 'Assistant' | 'Profile' | 'Manual' | 'Finalize' | 'Report';
 
 interface MainAppProps {
   user: User;
@@ -44,7 +45,7 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
     setActiveTab(tab);
 
     // Reset transient states when navigating away
-    if (tab === 'Dashboard' || tab === 'Diagnostics' || tab === 'Assistant' || tab === 'Profile') {
+    if (tab === 'Dashboard' || tab === 'Diagnostics' || tab === 'Assistant' || tab === 'Profile' || tab === 'Manual') {
       setInspectionState(null);
       setCompletedReport(null);
       setView(tab as View);
@@ -91,6 +92,8 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         return <ChatBot />;
       case 'Profile':
         return <UserProfile user={user} onLogout={onLogout} />;
+      case 'Manual':
+        return <ManualPage onBack={() => { setView('Dashboard'); setActiveTab('Dashboard'); }} />;
       default:
         return <CustomerDashboard user={user} onNewInspection={handleNewInspection} />;
     }

@@ -4,6 +4,7 @@ import { CONFIG } from '../config';
 interface LandingPageProps {
   onNavigateToLogin: () => void;
   onNavigateToSignup: () => void;
+  onNavigateToManual?: () => void;
 }
 
 const VEHICLE_TYPES = [
@@ -48,7 +49,7 @@ const FEATURES = [
   },
 ];
 
-const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigateToSignup }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigateToSignup, onNavigateToManual }) => {
   return (
     <div className="min-h-screen bg-dark-bg text-light-text">
       {/* Hero */}
@@ -58,6 +59,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           <nav className="flex justify-between items-center mb-16">
             <div className="text-2xl font-bold text-primary">{CONFIG.BRANDING.companyName}</div>
             <div className="flex gap-3">
+              {onNavigateToManual && (
+                <button
+                  onClick={onNavigateToManual}
+                  className="px-5 py-2 text-sm font-medium text-medium-text hover:text-light-text transition-colors"
+                >
+                  Manual
+                </button>
+              )}
               <button
                 onClick={onNavigateToLogin}
                 className="px-5 py-2 text-sm font-medium text-medium-text hover:text-light-text transition-colors"

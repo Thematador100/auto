@@ -8,9 +8,10 @@ import { DIYDashboard } from './components/DIYDashboard';
 import { LicenseGate } from './components/LicenseGate';
 import { InstallAppButton } from './components/InstallAppButton';
 import LandingPage from './components/LandingPage';
+import { ManualPage } from './components/ManualPage';
 import './index.css';
 
-type AppView = 'landing' | 'login' | 'signup' | 'app';
+type AppView = 'landing' | 'login' | 'signup' | 'manual' | 'app';
 
 /**
  * App with landing page, authentication, and user routing
@@ -35,8 +36,17 @@ const App: React.FC = () => {
     );
   }
 
-  // User is not logged in - show landing, login, or signup
+  // User is not logged in - show landing, login, signup, or manual
   if (!user) {
+    if (currentView === 'manual') {
+      return (
+        <>
+          <InstallAppButton />
+          <ManualPage onBack={() => setCurrentView('landing')} />
+        </>
+      );
+    }
+
     if (currentView === 'signup') {
       return (
         <>
@@ -68,6 +78,7 @@ const App: React.FC = () => {
         <LandingPage
           onNavigateToLogin={() => setCurrentView('login')}
           onNavigateToSignup={() => setCurrentView('signup')}
+          onNavigateToManual={() => setCurrentView('manual')}
         />
       </>
     );

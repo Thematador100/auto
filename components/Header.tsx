@@ -9,7 +9,7 @@ interface HeaderProps {
   onLogout: () => void;
 }
 
-const TABS = ['Dashboard', 'Inspection', 'Diagnostics', 'Assistant', 'Profile'];
+const TABS = ['Dashboard', 'Inspection', 'Diagnostics', 'Assistant', 'Profile', 'Manual'];
 
 export const Header: React.FC<HeaderProps> = ({ user, currentTab, onTabChange, onLogout }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
