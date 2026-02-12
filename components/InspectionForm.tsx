@@ -6,6 +6,7 @@ import { VEHICLE_INSPECTION_TEMPLATES } from '../constants';
 import { resizeAndCompressImage } from '../services/imageOptimizer';
 import { AudioRecorder } from './AudioRecorder';
 import { LoadingSpinner } from './LoadingSpinner';
+import { FraudDetection } from './FraudDetection';
 
 interface InspectionFormProps {
   onFinalize: (state: InspectionState) => void;
@@ -144,6 +145,7 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({ onFinalize }) =>
   const [selectedVehicleType, setSelectedVehicleType] = useState<VehicleType>('Standard');
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState<{ [key: string]: boolean }>({});
+  const [showAdvancedAnalysis, setShowAdvancedAnalysis] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentPhotoContext = useRef<{ category: string; itemIndex: number } | null>(null);
 
@@ -337,6 +339,34 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({ onFinalize }) =>
           className="w-full bg-dark-bg border border-dark-border rounded-md p-2 focus:ring-2 focus:ring-primary focus:border-primary transition text-light-text"
           rows={4}
         />
+      </div>
+
+      {/* Advanced Analysis - Fraud & Damage Detection */}
+      <div className="bg-dark-card rounded-lg border border-dark-border overflow-hidden">
+        <button
+          onClick={() => setShowAdvancedAnalysis(!showAdvancedAnalysis)}
+          className="w-full flex items-center justify-between p-4 hover:bg-dark-bg/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold px-2 py-1 rounded bg-purple-600/30 text-purple-300">AI</span>
+            <div className="text-left">
+              <h2 className="text-lg font-semibold text-light-text">Advanced Fraud & Damage Detection</h2>
+              <p className="text-xs text-medium-text">Odometer fraud, flood damage, and AI body scan (optional)</p>
+            </div>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-medium-text transition-transform ${showAdvancedAnalysis ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
+        </button>
+        {showAdvancedAnalysis && (
+          <div className="p-4 pt-0">
+            <FraudDetection
+              claimedMileage={parseInt(inspectionState.odometer) || 0}
+              vin={inspectionState.vehicle.vin}
+              vehicleType={inspectionState.vehicleType}
+            />
+          </div>
+        )}
       </div>
 
       {error && <p className="text-red-500 text-sm text-center">{error}</p>}

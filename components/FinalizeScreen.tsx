@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { InspectionState, CompletedReport, ReportSection, ReportSectionItem, InspectionSection, VehicleGrade } from '../types';
+import { InspectionState, CompletedReport, ReportSection, ReportSectionItem, InspectionSection, VehicleGrade, DamageAssessment } from '../types';
 import { getVehicleHistory } from '../services/vehicleHistoryService';
 import { getSafetyRecalls, getTheftAndSalvageRecord } from '../services/vehicleExtraDataService';
 import { generateReportSummary } from '../services/geminiService';
 import { offlineService } from '../services/offlineService';
 import { LoadingSpinner } from './LoadingSpinner';
+
+/** Categories containing exterior photos suitable for AI damage analysis */
+const EXTERIOR_CATEGORIES = [
+  'Exterior & Body', 'Body & Paint', 'Coach Exterior', 'Cab Exterior',
+  'Frame & Undercarriage', 'Frame, Wheels & Tires',
+];
 
 /**
  * Calculate overall vehicle grade from inspection results
@@ -132,7 +138,55 @@ export const FinalizeScreen: React.FC<FinalizeScreenProps> = ({ inspectionState,
         setStatus('Generating AI summary...');
         const summaryPromise = generateReportSummary(inspectionState);
 
-        const [history, recalls, theftRecord, summaryText] = await Promise.all([historyPromise, recallsPromise, theftPromise, summaryPromise]);
+        // Collect exterior photos for AI damage detection
+        setStatus('Scanning for body damage...');
+        const damagePromise = (async (): Promise<DamageAssessment | null> => {
+          try {
+            const allItems = [
+              ...Object.entries(inspectionState.checklist),
+              ...Object.entries(inspectionState.complianceChecklist),
+            ];
+            const exteriorPhotos: string[] = [];
+            for (const [category, items] of allItems) {
+              if (!Array.isArray(items)) continue;
+              const isExterior = EXTERIOR_CATEGORIES.some(c => category.toLowerCase().includes(c.toLowerCase()));
+              if (!isExterior) continue;
+              for (const item of items) {
+                for (const photo of item.photos) {
+                  if (exteriorPhotos.length < 8) {
+                    exteriorPhotos.push(photo.base64);
+                  }
+                }
+              }
+            }
+            if (exteriorPhotos.length === 0) return null;
+
+            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
+            const response = await fetch(`${BACKEND_URL}/api/fraud/analyze-damage`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              },
+              body: JSON.stringify({
+                photos: exteriorPhotos.map(b64 => ({ base64: b64 })),
+                vehicleType: inspectionState.vehicleType,
+                vin: inspectionState.vehicle.vin,
+              }),
+            });
+            if (!response.ok) return null;
+            const result = await response.json();
+            return {
+              overallSeverity: result.overallSeverity,
+              accidentLikelihood: result.accidentLikelihood,
+              findings: result.findings || [],
+            };
+          } catch {
+            return null; // Don't block report generation if damage detection fails
+          }
+        })();
+
+        const [history, recalls, theftRecord, summaryText, damageAssessment] = await Promise.all([historyPromise, recallsPromise, theftPromise, summaryPromise, damagePromise]);
 
         setStatus('Compiling final report...');
         const summary = parseSummary(summaryText);
@@ -165,6 +219,7 @@ export const FinalizeScreen: React.FC<FinalizeScreenProps> = ({ inspectionState,
             name: userName,
             company: userCompany || undefined,
           },
+          damageAssessment: damageAssessment || undefined,
           sections,
           complianceSections,
           vehicleHistory: history,
