@@ -2,7 +2,7 @@ import { CompletedReport } from '../types';
 import { DTCCode, InspectionState } from '../types';
 
 // Backend API URL from environment variables
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
 /**
  * Backend API client for Railway backend

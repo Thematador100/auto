@@ -25,7 +25,7 @@ export const DIYDashboard: React.FC<DIYDashboardProps> = ({ user, onLogout, onSt
   const [history, setHistory] = useState<InspectionHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
   // Fetch inspection history
   const fetchHistory = async () => {

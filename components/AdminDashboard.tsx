@@ -88,9 +88,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
     ai_reports: true,
     lead_bot: false,
   });
+  const [showExpiryModal, setShowExpiryModal] = useState(false);
+  const [expiryDate, setExpiryDate] = useState('');
   const [actionMessage, setActionMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
   // Fetch platform statistics
   const fetchStats = async () => {
@@ -335,6 +337,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
       }
     } catch (error) {
       showMessage('error', 'Network error updating features');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Set license expiry date
+  const handleSetExpiry = async (preset?: number) => {
+    if (!selectedUser) return;
+    setIsLoading(true);
+    try {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const body: any = {};
+      if (preset) {
+        body.licenseDurationMonths = preset;
+      } else if (expiryDate) {
+        body.licenseExpiresAt = new Date(expiryDate).toISOString();
+      } else {
+        showMessage('error', 'Select a date or duration');
+        setIsLoading(false);
+        return;
+      }
+
+      const response = await fetch(`${BACKEND_URL}/api/admin/licenses/${selectedUser.id}/expiry`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showMessage('success', `License expiry set for ${selectedUser.email}: ${new Date(data.user.license_expires_at).toLocaleDateString()}`);
+        setShowExpiryModal(false);
+        setSelectedUser(null);
+        setExpiryDate('');
+        fetchUsers();
+      } else {
+        showMessage('error', data.error || 'Failed to set expiry');
+      }
+    } catch (error) {
+      showMessage('error', 'Network error setting expiry');
     } finally {
       setIsLoading(false);
     }
@@ -626,6 +672,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                         <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">License</th>
                         <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Plan</th>
                         <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Territory</th>
+                        <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Expires</th>
                         <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Joined</th>
                         <th className="text-left px-4 py-3 text-sm font-semibold text-medium-text">Actions</th>
                       </tr>
@@ -664,6 +711,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                           </td>
                           <td className="px-4 py-4 text-medium-text text-sm">{u.plan || 'N/A'}</td>
                           <td className="px-4 py-4 text-medium-text text-sm">{u.territory || '-'}</td>
+                          <td className="px-4 py-4 text-sm">
+                            {u.license_expires_at ? (
+                              <span className={`font-medium ${
+                                new Date(u.license_expires_at) < new Date()
+                                  ? 'text-red-400'
+                                  : new Date(u.license_expires_at) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                                    ? 'text-yellow-400'
+                                    : 'text-green-400'
+                              }`}>
+                                {new Date(u.license_expires_at).toLocaleDateString()}
+                                {new Date(u.license_expires_at) < new Date() && ' (EXPIRED)'}
+                              </span>
+                            ) : (
+                              <span className="text-medium-text">No expiry</span>
+                            )}
+                          </td>
                           <td className="px-4 py-4 text-medium-text text-sm">
                             {new Date(u.created_at).toLocaleDateString()}
                           </td>
@@ -730,6 +793,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                                 title="Reset Password"
                               >
                                 Password
+                              </button>
+
+                              {/* Set Expiry */}
+                              <button
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setExpiryDate(u.license_expires_at ? new Date(u.license_expires_at).toISOString().split('T')[0] : '');
+                                  setShowExpiryModal(true);
+                                }}
+                                className="px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded text-xs font-semibold transition-colors"
+                                title="Set license expiry date"
+                              >
+                                Expiry
                               </button>
 
                               {/* Cancel License */}
@@ -1242,6 +1318,86 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* License Expiry Modal */}
+      {showExpiryModal && selectedUser && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark-card border border-orange-500 rounded-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-light-text mb-2">Set License Expiry</h3>
+            <p className="text-medium-text mb-4 text-sm">
+              Control when access expires for <span className="text-light-text font-semibold">{selectedUser.email}</span>
+            </p>
+
+            {selectedUser.license_expires_at && (
+              <div className={`mb-4 px-3 py-2 rounded text-sm ${
+                new Date(selectedUser.license_expires_at) < new Date()
+                  ? 'bg-red-900/30 text-red-300'
+                  : 'bg-green-900/30 text-green-300'
+              }`}>
+                Current expiry: {new Date(selectedUser.license_expires_at).toLocaleDateString()}
+                {new Date(selectedUser.license_expires_at) < new Date() && ' (EXPIRED)'}
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm text-medium-text mb-2">Quick Presets</label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => handleSetExpiry(6)}
+                  disabled={isLoading}
+                  className="px-3 py-2 bg-dark-bg border border-dark-border text-light-text rounded hover:border-orange-400 transition-colors text-sm"
+                >
+                  6 Months
+                </button>
+                <button
+                  onClick={() => handleSetExpiry(12)}
+                  disabled={isLoading}
+                  className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors text-sm font-semibold"
+                >
+                  1 Year
+                </button>
+                <button
+                  onClick={() => handleSetExpiry(24)}
+                  disabled={isLoading}
+                  className="px-3 py-2 bg-dark-bg border border-dark-border text-light-text rounded hover:border-orange-400 transition-colors text-sm"
+                >
+                  2 Years
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm text-medium-text mb-2">Or Set Custom Date</label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={expiryDate}
+                  onChange={(e) => setExpiryDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="flex-1 bg-dark-bg border border-dark-border text-light-text rounded-lg px-4 py-2 focus:outline-none focus:border-orange-400"
+                />
+                <button
+                  onClick={() => handleSetExpiry()}
+                  disabled={isLoading || !expiryDate}
+                  className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-semibold disabled:opacity-50 transition-colors"
+                >
+                  Set
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowExpiryModal(false);
+                setSelectedUser(null);
+                setExpiryDate('');
+              }}
+              className="w-full px-6 py-2 bg-dark-bg border border-dark-border text-light-text rounded-lg font-semibold hover:border-primary transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

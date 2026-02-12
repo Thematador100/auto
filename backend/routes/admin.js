@@ -181,7 +181,8 @@ router.patch('/users/:id', authenticateToken, requireAdmin, async (req, res) => 
       monthlyPlatformFee,
       upfrontFeePaid,
       featuresEnabled,
-      stripeAccountId
+      stripeAccountId,
+      licenseExpiresAt
     } = req.body;
 
     const updates = [];
@@ -254,6 +255,12 @@ router.patch('/users/:id', authenticateToken, requireAdmin, async (req, res) => 
       paramCount++;
     }
 
+    if (licenseExpiresAt !== undefined) {
+      updates.push(`license_expires_at = $${paramCount}`);
+      params.push(licenseExpiresAt); // ISO date string or null to clear
+      paramCount++;
+    }
+
     if (updates.length === 0) {
       return res.status(400).json({ error: 'No updates provided' });
     }
@@ -263,7 +270,7 @@ router.patch('/users/:id', authenticateToken, requireAdmin, async (req, res) => 
       SET ${updates.join(', ')}
       WHERE id = $1
       RETURNING id, email, user_type, company_name, plan, inspection_credits, subscription_status,
-                license_status, license_type, territory, revenue_share_percentage, features_enabled
+                license_status, license_type, territory, revenue_share_percentage, features_enabled, license_expires_at
     `;
 
     const result = await query(queryText, params);
@@ -362,12 +369,19 @@ router.post('/licenses/issue', authenticateToken, requireAdmin, async (req, res)
         advanced_fraud: true,
         ai_reports: true,
         lead_bot: false
-      }
+      },
+      licenseExpiresAt,
+      licenseDurationMonths = 12 // Default 1-year license
     } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: 'User ID is required' });
     }
+
+    // Calculate expiry: use explicit date, or default to licenseDurationMonths from now
+    const expiryDate = licenseExpiresAt
+      ? new Date(licenseExpiresAt)
+      : new Date(Date.now() + licenseDurationMonths * 30 * 24 * 60 * 60 * 1000);
 
     // Update user with license details
     const result = await query(
@@ -380,10 +394,10 @@ router.post('/licenses/issue', authenticateToken, requireAdmin, async (req, res)
            upfront_fee_paid = $6,
            features_enabled = $7,
            license_issued_at = NOW(),
-           license_expires_at = NULL
+           license_expires_at = $8
        WHERE id = $1
-       RETURNING id, email, company_name, license_status, territory`,
-      [userId, licenseType, territory, revenueSharePercentage, monthlyPlatformFee, upfrontFeePaid, JSON.stringify(featuresEnabled)]
+       RETURNING id, email, company_name, license_status, territory, license_expires_at`,
+      [userId, licenseType, territory, revenueSharePercentage, monthlyPlatformFee, upfrontFeePaid, JSON.stringify(featuresEnabled), expiryDate]
     );
 
     if (result.rows.length === 0) {
@@ -409,18 +423,36 @@ router.post('/licenses/issue', authenticateToken, requireAdmin, async (req, res)
 router.patch('/licenses/:userId/status', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { status } = req.body;
+    const { status, licenseExpiresAt, licenseDurationMonths } = req.body;
 
     if (!['active', 'suspended', 'cancelled', 'trial'].includes(status)) {
       return res.status(400).json({ error: 'Invalid license status' });
     }
 
+    // When activating, set expiry if provided or default to 1 year
+    let expiryClause = '';
+    const params = [userId, status];
+
+    if (status === 'active' || status === 'trial') {
+      if (licenseExpiresAt) {
+        expiryClause = `, license_expires_at = $3`;
+        params.push(new Date(licenseExpiresAt));
+      } else if (licenseDurationMonths) {
+        expiryClause = `, license_expires_at = $3`;
+        params.push(new Date(Date.now() + licenseDurationMonths * 30 * 24 * 60 * 60 * 1000));
+      }
+      // If neither provided when activating, keep existing expiry
+    } else if (status === 'cancelled') {
+      // When cancelling, clear the expiry
+      expiryClause = `, license_expires_at = NULL`;
+    }
+
     const result = await query(
       `UPDATE users
-       SET license_status = $2
+       SET license_status = $2${expiryClause}
        WHERE id = $1
-       RETURNING id, email, license_status`,
-      [userId, status]
+       RETURNING id, email, license_status, license_expires_at`,
+      params
     );
 
     if (result.rows.length === 0) {
@@ -471,6 +503,48 @@ router.patch('/licenses/:userId/features', authenticateToken, requireAdmin, asyn
   } catch (error) {
     console.error('[Admin] Update features error:', error);
     res.status(500).json({ error: 'Failed to update features' });
+  }
+});
+
+/**
+ * PATCH /api/admin/licenses/:userId/expiry
+ * Set or renew license expiry date
+ */
+router.patch('/licenses/:userId/expiry', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { licenseExpiresAt, licenseDurationMonths } = req.body;
+
+    let expiryDate;
+    if (licenseExpiresAt) {
+      expiryDate = new Date(licenseExpiresAt);
+    } else if (licenseDurationMonths) {
+      expiryDate = new Date(Date.now() + licenseDurationMonths * 30 * 24 * 60 * 60 * 1000);
+    } else {
+      return res.status(400).json({ error: 'Provide licenseExpiresAt (ISO date) or licenseDurationMonths' });
+    }
+
+    const result = await query(
+      `UPDATE users
+       SET license_expires_at = $2
+       WHERE id = $1
+       RETURNING id, email, license_status, license_expires_at`,
+      [userId, expiryDate]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`[Admin] License expiry set for ${result.rows[0].email}: ${expiryDate.toISOString()}`);
+
+    res.json({
+      message: 'License expiry updated',
+      user: result.rows[0]
+    });
+  } catch (error) {
+    console.error('[Admin] Update license expiry error:', error);
+    res.status(500).json({ error: 'Failed to update license expiry' });
   }
 });
 
@@ -758,7 +832,9 @@ router.post('/users/create', authenticateToken, requireAdmin, async (req, res) =
         ai_reports: true,
         lead_bot: false
       },
-      autoActivateLicense = true
+      autoActivateLicense = true,
+      licenseExpiresAt,
+      licenseDurationMonths = 12 // Default 1-year license
     } = req.body;
 
     // Validation
@@ -794,6 +870,13 @@ router.post('/users/create', authenticateToken, requireAdmin, async (req, res) =
     let subscriptionStatus = autoActivateLicense ? 'active' : 'trial';
     let licenseStatus = autoActivateLicense ? 'active' : 'inactive';
 
+    // Calculate license expiry: explicit date, or default duration from now
+    const expiryDate = autoActivateLicense
+      ? (licenseExpiresAt
+          ? new Date(licenseExpiresAt)
+          : new Date(Date.now() + licenseDurationMonths * 30 * 24 * 60 * 60 * 1000))
+      : null;
+
     // Create user with license fields
     const result = await query(
       `INSERT INTO users (
@@ -813,11 +896,12 @@ router.post('/users/create', authenticateToken, requireAdmin, async (req, res) =
         upfront_fee_paid,
         features_enabled,
         license_issued_at,
+        license_expires_at,
         onboarding_completed,
         created_at
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, ${autoActivateLicense ? 'NOW()' : 'NULL'}, $16, NOW())
-       RETURNING id, email, user_type, company_name, plan, license_status, territory`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, ${autoActivateLicense ? 'NOW()' : 'NULL'}, $16, $17, NOW())
+       RETURNING id, email, user_type, company_name, plan, license_status, territory, license_expires_at`,
       [
         email.toLowerCase(),
         passwordHash,
@@ -834,6 +918,7 @@ router.post('/users/create', authenticateToken, requireAdmin, async (req, res) =
         monthlyPlatformFee,
         upfrontFeePaid,
         JSON.stringify(featuresEnabled),
+        expiryDate,
         false // onboarding_completed
       ]
     );

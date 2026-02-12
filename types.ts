@@ -112,6 +112,19 @@ export interface ReportSection {
   items: ReportSectionItem[];
 }
 
+export interface VehicleGrade {
+  letter: string;       // A, B, C, D, F
+  score: number;        // 0-100
+  buyRecommendation: string;
+  estimatedRepairCost?: string;
+}
+
+export interface DamageAssessment {
+  overallSeverity: string;
+  accidentLikelihood: string;
+  findings: { area: string; severity: string; description: string }[];
+}
+
 export interface CompletedReport {
   id: string;
   date: string;
@@ -123,6 +136,13 @@ export interface CompletedReport {
     keyFindings: string[];
     recommendations: string[];
   };
+  vehicleGrade?: VehicleGrade;
+  inspectorInfo?: {
+    name: string;
+    licenseNumber?: string;
+    company?: string;
+  };
+  damageAssessment?: DamageAssessment;
   sections: ReportSection[];
   complianceSections: ReportSection[];
   vehicleHistory: VehicleHistoryReport;
