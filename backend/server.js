@@ -11,7 +11,6 @@ import reportRoutes from './routes/reports.js';
 import fraudRoutes from './routes/fraud.js';
 import commonIssuesRoutes from './routes/commonIssues.js';
 import adminRoutes from './routes/admin.js';
-import ttsRoutes from './routes/tts.js';
 import { authenticateToken, requireActiveLicense } from './middleware/auth.js';
 import { runMigrations } from './utils/runMigrations.js';
 
@@ -61,7 +60,6 @@ app.use('/api/reports', authenticateToken, requireActiveLicense, reportRoutes);
 app.use('/api/fraud', authenticateToken, requireActiveLicense, fraudRoutes);
 app.use('/api/common-issues', commonIssuesRoutes); // Public reference data
 app.use('/api/admin', adminRoutes); // Admin routes have their own auth middleware
-app.use('/api/tts', authenticateToken, requireActiveLicense, ttsRoutes); // Text-to-speech
 app.use('/api', authenticateToken, requireActiveLicense, aiRoutes); // AI routes: /api/analyze-dtc, /api/generate-report
 
 // Error handling middleware

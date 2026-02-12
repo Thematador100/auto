@@ -7,18 +7,16 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { DIYDashboard } from './components/DIYDashboard';
 import { LicenseGate } from './components/LicenseGate';
 import { InstallAppButton } from './components/InstallAppButton';
-import LandingPage from './components/LandingPage';
-import { ManualPage } from './components/ManualPage';
 import './index.css';
 
-type AppView = 'landing' | 'login' | 'signup' | 'manual' | 'app';
+type AppView = 'login' | 'signup' | 'app';
 
 /**
- * App with landing page, authentication, and user routing
+ * Phase 2C: App with authentication and user routing
  */
 const App: React.FC = () => {
   const { user, login, logout, isLoading } = useAuth();
-  const [currentView, setCurrentView] = useState<AppView>('landing');
+  const [currentView, setCurrentView] = useState<AppView>('login');
   const [showDIYInspection, setShowDIYInspection] = useState(false);
 
   // Loading state while checking for existing session
@@ -36,17 +34,8 @@ const App: React.FC = () => {
     );
   }
 
-  // User is not logged in - show landing, login, signup, or manual
+  // User is not logged in - show auth pages
   if (!user) {
-    if (currentView === 'manual') {
-      return (
-        <>
-          <InstallAppButton />
-          <ManualPage onBack={() => setCurrentView('landing')} />
-        </>
-      );
-    }
-
     if (currentView === 'signup') {
       return (
         <>
@@ -59,26 +48,12 @@ const App: React.FC = () => {
       );
     }
 
-    if (currentView === 'login') {
-      return (
-        <>
-          <InstallAppButton />
-          <LoginPage
-            onLogin={login}
-            onNavigateToSignup={() => setCurrentView('signup')}
-          />
-        </>
-      );
-    }
-
-    // Default: Landing page
     return (
       <>
         <InstallAppButton />
-        <LandingPage
-          onNavigateToLogin={() => setCurrentView('login')}
+        <LoginPage
+          onLogin={login}
           onNavigateToSignup={() => setCurrentView('signup')}
-          onNavigateToManual={() => setCurrentView('manual')}
         />
       </>
     );

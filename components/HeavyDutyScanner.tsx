@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { j1939Service, J1939FaultCode, HeavyDutyLiveData } from '../services/j1939Service';
 import { LoadingSpinner } from './LoadingSpinner';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
 
 /**
  * Heavy-Duty Scanner for 18-wheelers / commercial trucks.
