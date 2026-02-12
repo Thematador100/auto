@@ -90,7 +90,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout }
   });
   const [actionMessage, setActionMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
   // Fetch platform statistics
   const fetchStats = async () => {

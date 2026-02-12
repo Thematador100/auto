@@ -337,7 +337,7 @@ export const ReportView: React.FC<{ report: CompletedReport }> = ({ report }) =>
               const name = formData.get('name') as string;
               const message = formData.get('message') as string;
 
-              const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+              const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
               try {
                 const response = await fetch(`${BACKEND_URL}/api/reports/email`, {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '../types';
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
 /**
  * Phase 2C: Real authentication hook with license enforcement

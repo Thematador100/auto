@@ -6,7 +6,7 @@ interface UserProfileProps {
   onLogout: () => void;
 }
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
 export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout }) => {
   const [currentPassword, setCurrentPassword] = useState('');
