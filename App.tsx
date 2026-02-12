@@ -7,16 +7,17 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { DIYDashboard } from './components/DIYDashboard';
 import { LicenseGate } from './components/LicenseGate';
 import { InstallAppButton } from './components/InstallAppButton';
+import LandingPage from './components/LandingPage';
 import './index.css';
 
-type AppView = 'login' | 'signup' | 'app';
+type AppView = 'landing' | 'login' | 'signup' | 'app';
 
 /**
- * Phase 2C: App with authentication and user routing
+ * App with landing page, authentication, and user routing
  */
 const App: React.FC = () => {
   const { user, login, logout, isLoading } = useAuth();
-  const [currentView, setCurrentView] = useState<AppView>('login');
+  const [currentView, setCurrentView] = useState<AppView>('landing');
   const [showDIYInspection, setShowDIYInspection] = useState(false);
 
   // Loading state while checking for existing session
@@ -34,7 +35,7 @@ const App: React.FC = () => {
     );
   }
 
-  // User is not logged in - show auth pages
+  // User is not logged in - show landing, login, or signup
   if (!user) {
     if (currentView === 'signup') {
       return (
@@ -48,11 +49,24 @@ const App: React.FC = () => {
       );
     }
 
+    if (currentView === 'login') {
+      return (
+        <>
+          <InstallAppButton />
+          <LoginPage
+            onLogin={login}
+            onNavigateToSignup={() => setCurrentView('signup')}
+          />
+        </>
+      );
+    }
+
+    // Default: Landing page
     return (
       <>
         <InstallAppButton />
-        <LoginPage
-          onLogin={login}
+        <LandingPage
+          onNavigateToLogin={() => setCurrentView('login')}
           onNavigateToSignup={() => setCurrentView('signup')}
         />
       </>

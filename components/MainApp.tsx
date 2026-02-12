@@ -8,8 +8,9 @@ import { DiagnosticsTool } from './DiagnosticsTool';
 import { ChatBot } from './ChatBot';
 import { FinalizeScreen } from './FinalizeScreen';
 import { ReportView } from './ReportView';
+import { UserProfile } from './UserProfile';
 
-type View = 'Dashboard' | 'Inspection' | 'Diagnostics' | 'Assistant' | 'Finalize' | 'Report';
+type View = 'Dashboard' | 'Inspection' | 'Diagnostics' | 'Assistant' | 'Profile' | 'Finalize' | 'Report';
 
 interface MainAppProps {
   user: User;
@@ -41,9 +42,9 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
 
   const handleTabChange = (tab: View | string) => {
     setActiveTab(tab);
-    
+
     // Reset transient states when navigating away
-    if (tab === 'Dashboard' || tab === 'Diagnostics' || tab === 'Assistant') {
+    if (tab === 'Dashboard' || tab === 'Diagnostics' || tab === 'Assistant' || tab === 'Profile') {
       setInspectionState(null);
       setCompletedReport(null);
       setView(tab as View);
@@ -60,7 +61,6 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         return <InspectionForm onFinalize={handleFinalize} />;
       case 'Finalize':
         if (!inspectionState) {
-          // Fallback if state is lost - redirect to dashboard
           setTimeout(() => {
             setView('Dashboard');
             setActiveTab('Dashboard');
@@ -74,7 +74,6 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         return <FinalizeScreen inspectionState={inspectionState} onReportComplete={handleReportComplete} />;
       case 'Report':
         if (!completedReport) {
-          // Fallback if state is lost - redirect to dashboard
           setTimeout(() => {
             setView('Dashboard');
             setActiveTab('Dashboard');
@@ -90,6 +89,8 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         return <DiagnosticsTool />;
       case 'Assistant':
         return <ChatBot />;
+      case 'Profile':
+        return <UserProfile user={user} onLogout={onLogout} />;
       default:
         return <CustomerDashboard user={user} onNewInspection={handleNewInspection} />;
     }
@@ -98,7 +99,7 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
   return (
     <div className="min-h-screen bg-dark-bg text-light-text font-sans">
       <Header user={user} currentTab={activeTab} onTabChange={handleTabChange} onLogout={onLogout} />
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {renderContent()}
       </main>
       <Footer />
