@@ -210,6 +210,18 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({ onFinalize }) =>
   const hasComplianceChecklist = Object.keys(inspectionState.complianceChecklist).length > 0;
   const complianceLabel = COMPLIANCE_SECTION_LABELS[inspectionState.vehicleType] || 'Additional Checks';
 
+  // Progress tracking
+  const allItems = [
+    ...Object.values(inspectionState.checklist).flat(),
+    ...Object.values(inspectionState.complianceChecklist).flat(),
+  ];
+  const totalItems = allItems.length;
+  const checkedItems = allItems.filter((i: any) => i.condition !== 'unchecked').length;
+  const progressPercent = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0;
+  const photoCount = allItems.reduce((sum: number, i: any) => sum + i.photos.length, 0);
+  const failCount = allItems.filter((i: any) => i.condition === 'fail').length;
+  const concernCount = allItems.filter((i: any) => i.condition === 'concern').length;
+
   const handleFinalizeClick = () => {
     if (!inspectionState.odometer.trim() || !/^\d+$/.test(inspectionState.odometer)) {
       setError("Please enter a valid odometer reading (numbers only).");
@@ -268,6 +280,33 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({ onFinalize }) =>
             {VEHICLE_TYPE_LABELS[inspectionState.vehicleType] || inspectionState.vehicleType}
           </span>
         </div>
+      </div>
+
+      {/* Progress Indicator */}
+      <div className="bg-dark-card p-4 rounded-lg border border-dark-border sticky top-0 z-10">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-semibold text-light-text">Inspection Progress</span>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="text-green-400">{checkedItems}/{totalItems} items</span>
+            <span className="text-blue-400">{photoCount} photos</span>
+            {failCount > 0 && <span className="text-red-400">{failCount} fails</span>}
+            {concernCount > 0 && <span className="text-yellow-400">{concernCount} concerns</span>}
+          </div>
+        </div>
+        <div className="w-full h-3 bg-dark-bg rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${
+              progressPercent === 100 ? 'bg-green-500' : progressPercent > 50 ? 'bg-primary' : 'bg-yellow-500'
+            }`}
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        <p className="text-xs text-medium-text mt-2">
+          {progressPercent === 0 && 'Start by entering the odometer reading, then work through each section.'}
+          {progressPercent > 0 && progressPercent < 50 && 'Keep going! Mark each item as Pass, Fail, Concern, or N/A. Add photos for evidence.'}
+          {progressPercent >= 50 && progressPercent < 100 && 'Great progress! Finish the remaining items and add photos for any failed/concern items.'}
+          {progressPercent === 100 && 'All items checked! Review your notes and photos, then tap Finalize to generate the report.'}
+        </p>
       </div>
 
       <div className="bg-dark-card p-6 rounded-lg border border-dark-border">

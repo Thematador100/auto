@@ -351,6 +351,108 @@ ${waterStainLocations.map(l => `- ${l}`).join('\n')}
 });
 
 /**
+ * POST /api/fraud/analyze-damage
+ * AI-powered body damage and accident detection from vehicle photos
+ * Uses Gemini Vision to detect: dents, paint inconsistencies, panel gaps,
+ * repair evidence, frame damage indicators - similar to rental car scan technology
+ */
+router.post('/analyze-damage', authenticateToken, async (req, res) => {
+  try {
+    const { photos, vehicleType, vin } = req.body;
+
+    if (!photos || !Array.isArray(photos) || photos.length === 0) {
+      return res.status(400).json({ error: 'At least one photo is required' });
+    }
+
+    console.log(`[Fraud] Analyzing ${photos.length} photos for body damage (VIN: ${vin || 'unknown'})`);
+
+    const findings = [];
+    let hasRepairEvidence = false;
+    let hasPanelGaps = false;
+    let hasPaintMismatch = false;
+
+    // Analyze each photo for damage
+    for (const photo of photos.slice(0, 8)) { // Limit to 8 photos for API cost control
+      const imageData = photo.base64 || photo.url?.replace(/^data:[^;]+;base64,/, '');
+      if (!imageData) continue;
+
+      const analysis = await analyzeImage(
+        imageData,
+        `You are an expert automotive body damage inspector using AI-powered visual analysis (similar to rental car damage detection systems).
+
+Analyze this vehicle photo for ANY of the following:
+
+1. BODY DAMAGE: Dents, dings, scratches, cracked bumpers, broken lights, missing trim
+2. PAINT CONDITION: Color mismatches between panels, orange peel texture (repaint), overspray on trim/rubber, fading, clear coat failure
+3. PANEL GAPS: Uneven gaps between doors/fenders/hood/trunk that indicate collision repair or frame damage
+4. REPAIR EVIDENCE: Bondo/filler (look for waviness), welding marks, mismatched bolt patterns, non-OEM parts
+5. STRUCTURAL DAMAGE: Bent frame rails visible, crumple zone deformation, uneven ride height
+6. RUST/CORROSION: Surface rust, structural rust, bubble rust under paint
+
+For EACH issue found, respond in this exact format (one per line):
+AREA: [specific location] | SEVERITY: [Minor/Moderate/Severe] | DESCRIPTION: [what you see]
+
+If the photo shows NO damage issues, respond with:
+CLEAN: No damage detected in this view
+
+Also include a final line:
+ACCIDENT_SIGNS: [Yes/No] | REPAINT_SIGNS: [Yes/No] | PANEL_GAP_ISSUES: [Yes/No]`
+      );
+
+      // Parse AI response into structured findings
+      const lines = analysis.split('\n').filter(l => l.trim());
+      for (const line of lines) {
+        const match = line.match(/^AREA:\s*(.+?)\s*\|\s*SEVERITY:\s*(.+?)\s*\|\s*DESCRIPTION:\s*(.+)/i);
+        if (match) {
+          findings.push({
+            area: match[1].trim(),
+            severity: match[2].trim(),
+            description: match[3].trim(),
+          });
+        }
+
+        const signsMatch = line.match(/ACCIDENT_SIGNS:\s*(Yes|No)\s*\|\s*REPAINT_SIGNS:\s*(Yes|No)\s*\|\s*PANEL_GAP_ISSUES:\s*(Yes|No)/i);
+        if (signsMatch) {
+          if (signsMatch[1].toLowerCase() === 'yes') hasRepairEvidence = true;
+          if (signsMatch[2].toLowerCase() === 'yes') hasPaintMismatch = true;
+          if (signsMatch[3].toLowerCase() === 'yes') hasPanelGaps = true;
+        }
+      }
+    }
+
+    // Calculate overall severity
+    const severeCount = findings.filter(f => f.severity === 'Severe').length;
+    const moderateCount = findings.filter(f => f.severity === 'Moderate').length;
+    let overallSeverity = 'None';
+    if (severeCount > 0) overallSeverity = 'Severe';
+    else if (moderateCount > 1) overallSeverity = 'Moderate';
+    else if (findings.length > 0) overallSeverity = 'Minor';
+
+    // Determine accident likelihood
+    let accidentLikelihood = 'Unlikely';
+    if (hasRepairEvidence && hasPanelGaps) accidentLikelihood = 'Likely';
+    else if (hasRepairEvidence || hasPanelGaps || hasPaintMismatch) accidentLikelihood = 'Possible';
+    if (severeCount > 1) accidentLikelihood = 'Likely';
+
+    console.log(`[Fraud] Damage analysis complete: ${findings.length} issues found, severity: ${overallSeverity}, accident: ${accidentLikelihood}`);
+
+    res.json({
+      overallSeverity,
+      accidentLikelihood,
+      findings,
+      repaintDetected: hasPaintMismatch,
+      panelGapIssues: hasPanelGaps,
+      repairEvidence: hasRepairEvidence,
+      photosAnalyzed: Math.min(photos.length, 8),
+    });
+
+  } catch (error) {
+    console.error('[Fraud] Damage analysis error:', error);
+    res.status(500).json({ error: 'Failed to analyze damage', details: error.message });
+  }
+});
+
+/**
  * GET /api/fraud/inspection/:inspectionId
  * Get all fraud indicators for an inspection
  */

@@ -1,10 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { InspectionState, CompletedReport, ReportSection, ReportSectionItem, InspectionSection } from '../types';
+import { InspectionState, CompletedReport, ReportSection, ReportSectionItem, InspectionSection, VehicleGrade } from '../types';
 import { getVehicleHistory } from '../services/vehicleHistoryService';
 import { getSafetyRecalls, getTheftAndSalvageRecord } from '../services/vehicleExtraDataService';
 import { generateReportSummary } from '../services/geminiService';
 import { offlineService } from '../services/offlineService';
 import { LoadingSpinner } from './LoadingSpinner';
+
+/**
+ * Calculate overall vehicle grade from inspection results
+ */
+const calculateVehicleGrade = (
+  sections: ReportSection[],
+  complianceSections: ReportSection[],
+  hasAccident: boolean,
+  recallCount: number,
+  isSalvage: boolean
+): VehicleGrade => {
+  const allSections = [...sections, ...complianceSections];
+  const passCount = allSections.reduce((sum, s) => sum + s.items.filter(i => i.status === 'Pass').length, 0);
+  const failCount = allSections.reduce((sum, s) => sum + s.items.filter(i => i.status === 'Fail').length, 0);
+  const concernCount = allSections.reduce((sum, s) => sum + s.items.filter(i => i.status === 'Concern').length, 0);
+  const checkedItems = passCount + failCount + concernCount;
+
+  let score = checkedItems > 0 ? Math.round((passCount / checkedItems) * 100) : 50;
+
+  if (hasAccident) score -= 10;
+  if (isSalvage) score -= 20;
+  score -= Math.min(recallCount * 3, 15);
+  score -= failCount * 2;
+  score -= Math.floor(concernCount * 0.5);
+  score = Math.max(0, Math.min(100, score));
+
+  let letter: string;
+  let buyRecommendation: string;
+  if (score >= 90) { letter = 'A'; buyRecommendation = 'Strong Buy'; }
+  else if (score >= 80) { letter = 'B'; buyRecommendation = 'Buy with Confidence'; }
+  else if (score >= 65) { letter = 'C'; buyRecommendation = 'Buy with Caution - Negotiate Repairs'; }
+  else if (score >= 50) { letter = 'D'; buyRecommendation = 'Significant Issues - Negotiate Hard or Walk Away'; }
+  else { letter = 'F'; buyRecommendation = 'Walk Away - Too Many Issues'; }
+
+  const avgRepairPerFail = 350;
+  const avgRepairPerConcern = 120;
+  const estimatedCost = (failCount * avgRepairPerFail) + (concernCount * avgRepairPerConcern);
+  const estimatedRepairCost = estimatedCost > 0 ? `$${estimatedCost.toLocaleString()} - $${Math.round(estimatedCost * 1.5).toLocaleString()}` : 'None expected';
+
+  return { letter, score, buyRecommendation, estimatedRepairCost };
+};
 
 interface FinalizeScreenProps {
   inspectionState: InspectionState;
@@ -25,10 +66,6 @@ const parseSummary = (summaryText: string) => {
     };
 };
 
-/**
- * Convert an InspectionSection (checklist categories with items) into structured ReportSections.
- * This transforms the raw checklist data into the report-ready format with pass/fail/concern statuses.
- */
 const buildReportSections = (checklist: InspectionSection): ReportSection[] => {
   const sections: ReportSection[] = [];
 
@@ -43,7 +80,6 @@ const buildReportSections = (checklist: InspectionSection): ReportSection[] => {
         case 'concern': status = 'Concern'; break;
         case 'na': status = 'N/A'; break;
         default:
-          // Legacy fallback: if condition not set, use checked state
           status = item.checked ? 'Pass' : 'N/A';
       }
 
@@ -59,7 +95,6 @@ const buildReportSections = (checklist: InspectionSection): ReportSection[] => {
       };
     });
 
-    // Build a section-level note summarizing failures and concerns
     const failCount = reportItems.filter(i => i.status === 'Fail').length;
     const concernCount = reportItems.filter(i => i.status === 'Concern').length;
     const passCount = reportItems.filter(i => i.status === 'Pass').length;
@@ -100,14 +135,23 @@ export const FinalizeScreen: React.FC<FinalizeScreenProps> = ({ inspectionState,
         const [history, recalls, theftRecord, summaryText] = await Promise.all([historyPromise, recallsPromise, theftPromise, summaryPromise]);
 
         setStatus('Compiling final report...');
-
         const summary = parseSummary(summaryText);
-
-        // Build structured sections from checklist data
         const sections = buildReportSections(inspectionState.checklist);
-
-        // Build compliance sections (DOT, Habitability, Authenticity) if applicable
         const complianceSections = buildReportSections(inspectionState.complianceChecklist);
+
+        setStatus('Calculating vehicle grade...');
+        const vehicleGrade = calculateVehicleGrade(
+          sections,
+          complianceSections,
+          history.hasAccident,
+          recalls.length,
+          theftRecord.isSalvage
+        );
+
+        // Inspector info from logged-in user
+        const userEmail = localStorage.getItem('userEmail') || sessionStorage.getItem('userEmail') || '';
+        const userName = localStorage.getItem('userName') || sessionStorage.getItem('userName') || userEmail.split('@')[0] || 'Inspector';
+        const userCompany = localStorage.getItem('userCompany') || sessionStorage.getItem('userCompany') || '';
 
         const newReport: CompletedReport = {
           id: `rep-${Date.now()}`,
@@ -116,6 +160,11 @@ export const FinalizeScreen: React.FC<FinalizeScreenProps> = ({ inspectionState,
           vehicleType: inspectionState.vehicleType,
           odometer: inspectionState.odometer,
           summary,
+          vehicleGrade,
+          inspectorInfo: {
+            name: userName,
+            company: userCompany || undefined,
+          },
           sections,
           complianceSections,
           vehicleHistory: history,
