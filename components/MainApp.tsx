@@ -86,7 +86,7 @@ export const MainApp: React.FC<MainAppProps> = ({ user, onLogout }) => {
         }
         return <ReportView report={completedReport} />;
       case 'Diagnostics':
-        return <DiagnosticsTool />;
+        return <DiagnosticsTool vehicleType={inspectionState?.vehicleType} />;
       case 'Assistant':
         return <ChatBot />;
       case 'Profile':
