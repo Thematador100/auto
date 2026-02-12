@@ -33,7 +33,7 @@ export const sendChatMessage = async (
 
   try {
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
 
     const response = await fetch(`${BACKEND_URL}/api/chat`, {
       method: 'POST',
