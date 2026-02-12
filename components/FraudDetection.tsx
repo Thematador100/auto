@@ -3,17 +3,21 @@ import React, { useState } from 'react';
 interface FraudDetectionProps {
   claimedMileage: number;
   vin: string;
-  onOdometerAnalysis: (result: any) => void;
-  onFloodAnalysis: (result: any) => void;
+  vehicleType?: string;
+  onOdometerAnalysis?: (result: any) => void;
+  onFloodAnalysis?: (result: any) => void;
+  onDamageAnalysis?: (result: any) => void;
 }
 
 export const FraudDetection: React.FC<FraudDetectionProps> = ({
   claimedMileage,
   vin,
+  vehicleType,
   onOdometerAnalysis,
-  onFloodAnalysis
+  onFloodAnalysis,
+  onDamageAnalysis,
 }) => {
-  const [activeTab, setActiveTab] = useState<'odometer' | 'flood'>('odometer');
+  const [activeTab, setActiveTab] = useState<'odometer' | 'flood' | 'damage'>('odometer');
 
   // Odometer fraud state
   const [pedalPhoto, setPedalPhoto] = useState<string | null>(null);
@@ -21,6 +25,11 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
   const [seatPhoto, setSeatPhoto] = useState<string | null>(null);
   const [odometerAnalyzing, setOdometerAnalyzing] = useState(false);
   const [odometerResult, setOdometerResult] = useState<any>(null);
+
+  // Body damage state
+  const [damagePhotos, setDamagePhotos] = useState<string[]>([]);
+  const [damageAnalyzing, setDamageAnalyzing] = useState(false);
+  const [damageResult, setDamageResult] = useState<any>(null);
 
   // Flood damage state
   const [mustySmell, setMustySmell] = useState(false);
@@ -57,7 +66,7 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
 
     setOdometerAnalyzing(true);
 
-    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/fraud/analyze-odometer`, {
@@ -93,7 +102,7 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
   const analyzeFloodDamage = async () => {
     setFloodAnalyzing(true);
 
-    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-3041.up.railway.app';
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/fraud/analyze-flood`, {
@@ -132,9 +141,59 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
     }
   };
 
+  const handleDamagePhotoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setDamagePhotos(prev => [...prev.slice(0, 7), reader.result as string]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeDamagePhoto = (index: number) => {
+    setDamagePhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const analyzeDamage = async () => {
+    if (damagePhotos.length === 0) {
+      alert('Please upload at least one exterior photo');
+      return;
+    }
+    setDamageAnalyzing(true);
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://auto-production-8579.up.railway.app';
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/fraud/analyze-damage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          photos: damagePhotos.map(p => ({ base64: p.replace(/^data:[^;]+;base64,/, '') })),
+          vehicleType: vehicleType || 'Standard',
+          vin,
+        })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        setDamageResult(result);
+        onDamageAnalysis?.(result);
+      } else {
+        const error = await response.json();
+        alert(`Analysis failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Damage analysis error:', error);
+      alert('Failed to analyze body damage');
+    } finally {
+      setDamageAnalyzing(false);
+    }
+  };
+
   return (
     <div className="bg-dark-card p-6 rounded-lg border border-dark-border">
-      <h2 className="text-2xl font-bold text-light-text mb-4">🕵️ Fraud Detection</h2>
+      <h2 className="text-2xl font-bold text-light-text mb-4">Fraud & Damage Detection</h2>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6 border-b border-dark-border">
@@ -157,6 +216,16 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
           }`}
         >
           Flood Damage
+        </button>
+        <button
+          onClick={() => setActiveTab('damage')}
+          className={`px-4 py-2 font-semibold transition-colors ${
+            activeTab === 'damage'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-medium-text hover:text-light-text'
+          }`}
+        >
+          Body Damage AI
         </button>
       </div>
 
@@ -352,6 +421,128 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
                 )}
                 <pre className="text-sm bg-dark-bg p-3 rounded mt-2 whitespace-pre-wrap">{floodResult.analysis}</pre>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Body Damage AI Tab */}
+      {activeTab === 'damage' && (
+        <div className="space-y-4">
+          <p className="text-medium-text">
+            Upload exterior photos from all angles. Our AI uses rental-car-grade scanning technology
+            to detect dents, paint mismatches, panel gap issues, hidden repairs, and accident evidence.
+          </p>
+
+          <div className="bg-dark-bg border border-blue-500/30 rounded-lg p-4">
+            <h3 className="text-sm font-bold text-blue-400 mb-2">Photo Guide</h3>
+            <p className="text-xs text-medium-text">
+              For best results, take photos of: front, rear, both sides, all 4 corners (3/4 views),
+              close-ups of any suspicious areas. Up to 8 photos will be analyzed.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-light-text font-semibold mb-2">
+              Exterior Photos ({damagePhotos.length}/8)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleDamagePhotoCapture}
+              disabled={damagePhotos.length >= 8}
+              className="w-full text-light-text mb-3"
+            />
+            {damagePhotos.length > 0 && (
+              <div className="grid grid-cols-4 gap-2">
+                {damagePhotos.map((photo, i) => (
+                  <div key={i} className="relative group">
+                    <img src={photo} alt={`Exterior ${i + 1}`} className="w-full h-24 object-cover rounded border border-dark-border" />
+                    <button
+                      onClick={() => removeDamagePhoto(i)}
+                      className="absolute top-0 right-0 bg-red-600 text-white rounded-full p-0.5 m-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={analyzeDamage}
+            disabled={damagePhotos.length === 0 || damageAnalyzing}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {damageAnalyzing ? 'AI Scanning for Damage...' : `Scan ${damagePhotos.length} Photo${damagePhotos.length !== 1 ? 's' : ''} for Damage`}
+          </button>
+
+          {/* Damage Results */}
+          {damageResult && (
+            <div className={`p-4 rounded-lg border-2 ${
+              damageResult.overallSeverity === 'Severe' ? 'bg-red-900/20 border-red-500' :
+              damageResult.overallSeverity === 'Moderate' ? 'bg-yellow-900/20 border-yellow-500' :
+              damageResult.overallSeverity === 'Minor' ? 'bg-orange-900/20 border-orange-500' :
+              'bg-green-900/20 border-green-500'
+            }`}>
+              <h3 className="text-xl font-bold text-light-text mb-3">
+                {damageResult.overallSeverity === 'Severe' ? 'Severe Damage Detected' :
+                 damageResult.overallSeverity === 'Moderate' ? 'Moderate Damage Detected' :
+                 damageResult.overallSeverity === 'Minor' ? 'Minor Damage Detected' :
+                 'No Significant Damage'}
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="bg-dark-bg rounded p-2 text-center">
+                  <p className="text-xs text-medium-text">Severity</p>
+                  <p className="font-bold text-light-text">{damageResult.overallSeverity}</p>
+                </div>
+                <div className="bg-dark-bg rounded p-2 text-center">
+                  <p className="text-xs text-medium-text">Accident</p>
+                  <p className={`font-bold ${damageResult.accidentLikelihood === 'Likely' ? 'text-red-400' : damageResult.accidentLikelihood === 'Possible' ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {damageResult.accidentLikelihood}
+                  </p>
+                </div>
+                <div className="bg-dark-bg rounded p-2 text-center">
+                  <p className="text-xs text-medium-text">Repaint</p>
+                  <p className={`font-bold ${damageResult.repaintDetected ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {damageResult.repaintDetected ? 'Detected' : 'Not Detected'}
+                  </p>
+                </div>
+                <div className="bg-dark-bg rounded p-2 text-center">
+                  <p className="text-xs text-medium-text">Panel Gaps</p>
+                  <p className={`font-bold ${damageResult.panelGapIssues ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {damageResult.panelGapIssues ? 'Issues Found' : 'Normal'}
+                  </p>
+                </div>
+              </div>
+
+              {damageResult.findings && damageResult.findings.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-light-text">Findings ({damageResult.findings.length})</h4>
+                  {damageResult.findings.map((f: any, i: number) => (
+                    <div key={i} className="bg-dark-bg rounded p-3 flex items-start gap-3">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded shrink-0 ${
+                        f.severity === 'Severe' ? 'bg-red-600 text-white' :
+                        f.severity === 'Moderate' ? 'bg-yellow-600 text-white' :
+                        'bg-blue-600 text-white'
+                      }`}>{f.severity}</span>
+                      <div>
+                        <p className="text-sm font-semibold text-light-text">{f.area}</p>
+                        <p className="text-xs text-medium-text">{f.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {damageResult.findings && damageResult.findings.length === 0 && (
+                <p className="text-green-400 font-semibold">No body damage or accident evidence detected in the analyzed photos.</p>
+              )}
+
+              <p className="text-xs text-medium-text mt-3">{damageResult.photosAnalyzed} photo(s) analyzed</p>
             </div>
           )}
         </div>

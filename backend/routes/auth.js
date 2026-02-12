@@ -330,4 +330,152 @@ router.get('/license-status', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/auth/forgot-password
+ * Generate a temporary reset code for password recovery
+ */
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const result = await query(
+      'SELECT id, email FROM users WHERE email = $1',
+      [email.toLowerCase()]
+    );
+
+    // Always return success to prevent email enumeration
+    if (result.rows.length === 0) {
+      return res.json({ message: 'If that email exists, a reset code has been generated.' });
+    }
+
+    // Generate a 6-digit reset code and store it with expiry
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    await query(
+      `UPDATE users SET reset_code = $1, reset_code_expires_at = $2 WHERE id = $3`,
+      [resetCode, expiresAt, result.rows[0].id]
+    );
+
+    console.log(`[Auth] Password reset code generated for ${email}: ${resetCode}`);
+
+    // In production, send this code via email. For now, return it (admin can see it in logs)
+    res.json({
+      message: 'If that email exists, a reset code has been generated.',
+      // Remove the code from the response in production and send via email instead
+      resetCode
+    });
+  } catch (error) {
+    console.error('[Auth] Forgot password error:', error);
+    res.status(500).json({ error: 'Failed to process password reset' });
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Reset password using the code from forgot-password
+ */
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { email, resetCode, newPassword } = req.body;
+
+    if (!email || !resetCode || !newPassword) {
+      return res.status(400).json({ error: 'Email, reset code, and new password are required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    const result = await query(
+      `SELECT id, reset_code, reset_code_expires_at FROM users WHERE email = $1`,
+      [email.toLowerCase()]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ error: 'Invalid email or reset code' });
+    }
+
+    const user = result.rows[0];
+
+    if (!user.reset_code || user.reset_code !== resetCode) {
+      return res.status(400).json({ error: 'Invalid reset code' });
+    }
+
+    if (new Date(user.reset_code_expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Reset code has expired. Please request a new one.' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await query(
+      `UPDATE users SET password_hash = $1, reset_code = NULL, reset_code_expires_at = NULL WHERE id = $2`,
+      [passwordHash, user.id]
+    );
+
+    console.log(`[Auth] Password reset successful for ${email}`);
+
+    res.json({ message: 'Password reset successful. You can now log in with your new password.' });
+  } catch (error) {
+    console.error('[Auth] Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+/**
+ * POST /api/auth/change-password
+ * Change password for authenticated user
+ */
+router.post('/change-password', async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { authenticateToken } = await import('../middleware/auth.js');
+
+    authenticateToken(req, res, async () => {
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return res.status(400).json({ error: 'Current and new password are required' });
+      }
+
+      if (newPassword.length < 8) {
+        return res.status(400).json({ error: 'New password must be at least 8 characters' });
+      }
+
+      const result = await query(
+        'SELECT id, password_hash FROM users WHERE id = $1',
+        [req.user.id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const isValid = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+      if (!isValid) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+
+      const passwordHash = await bcrypt.hash(newPassword, 10);
+      await query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, req.user.id]);
+
+      console.log(`[Auth] Password changed for user ${req.user.email}`);
+      res.json({ message: 'Password changed successfully' });
+    });
+  } catch (error) {
+    console.error('[Auth] Change password error:', error);
+    res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
 export default router;
