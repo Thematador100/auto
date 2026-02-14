@@ -151,10 +151,16 @@ export const InspectionForm: React.FC<InspectionFormProps> = ({ onFinalize }) =>
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (!event.target.files || event.target.files.length === 0 || !currentPhotoContext.current) {
+      // Always clear the file input so the same file can be re-selected next time
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       return;
     }
     const file = event.target.files[0];
+    // Capture and clear context immediately to prevent cross-contamination between uploads
     const { category, itemIndex } = currentPhotoContext.current;
+    currentPhotoContext.current = null;
     const uploadKey = `${category}-${itemIndex}`;
 
     setIsUploading(prev => ({ ...prev, [uploadKey]: true }));

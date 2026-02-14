@@ -1,7 +1,7 @@
 // Service Worker for AI Auto Pro PWA
 // Provides offline support, caching, and fast loading
 
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v2.0.0';
 const CACHE_NAME = `aiautopro-${CACHE_VERSION}`;
 
 // Assets to cache on install
@@ -75,17 +75,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy 2: Cache-first for static assets (fast loading)
+  // Strategy 2: Network-first for JS/CSS bundles (prevents stale code after deploys)
+  if (url.pathname.match(/\.(js|css)$/)) {
+    event.respondWith(networkFirstStrategy(request));
+    return;
+  }
+
+  // Strategy 3: Cache-first for static images/fonts (safe to cache long-term)
   if (
-    url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|woff|woff2|ttf)$/) ||
+    url.pathname.match(/\.(png|jpg|jpeg|svg|woff|woff2|ttf)$/) ||
     url.pathname.startsWith('/icons/')
   ) {
     event.respondWith(cacheFirstStrategy(request));
     return;
   }
 
-  // Strategy 3: Stale-while-revalidate for HTML pages
-  event.respondWith(staleWhileRevalidateStrategy(request));
+  // Strategy 4: Network-first for HTML pages (always get latest markup)
+  event.respondWith(networkFirstStrategy(request));
 });
 
 // Network-first: Try network, fallback to cache

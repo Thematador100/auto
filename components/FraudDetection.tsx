@@ -86,7 +86,7 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
       if (response.ok) {
         const result = await response.json();
         setOdometerResult(result);
-        onOdometerAnalysis(result);
+        onOdometerAnalysis?.(result);
       } else {
         const error = await response.json();
         alert(`Analysis failed: ${error.error}`);
@@ -128,7 +128,7 @@ export const FraudDetection: React.FC<FraudDetectionProps> = ({
       if (response.ok) {
         const result = await response.json();
         setFloodResult(result);
-        onFloodAnalysis(result);
+        onFloodAnalysis?.(result);
       } else {
         const error = await response.json();
         alert(`Analysis failed: ${error.error}`);
