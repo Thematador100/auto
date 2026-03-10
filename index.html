@@ -122,6 +122,38 @@
       }
     </script>
 
+    <!-- Autofill fix: force React to recognize browser-autofilled values on form submit.
+         When a browser autofills inputs it sets the DOM value directly, bypassing React's
+         synthetic onChange events. This script uses the native HTMLInputElement value setter
+         (which React does not intercept) to re-set each input's value and then dispatches a
+         native 'input' event so React's event delegation picks it up and updates state.
+         Runs in the capture phase so it completes before React's onSubmit handler reads state. -->
+    <script>
+      (function () {
+        var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        ).set;
+
+        document.addEventListener('submit', function (event) {
+          var form = event.target;
+          if (!(form instanceof HTMLFormElement)) return;
+
+          form.querySelectorAll('input').forEach(function (input) {
+            var domValue = input.value;
+            if (domValue) {
+              // Call the native setter so React's internal "last known value"
+              // tracker sees a change and doesn't silently swallow the event.
+              nativeInputValueSetter.call(input, domValue);
+              // Dispatch a bubbling input event so React's delegated listener
+              // fires onChange and syncs state before the submit handler runs.
+              input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+          });
+        }, true /* capture: runs before React's bubbling submit handler */);
+      })();
+    </script>
+
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>
