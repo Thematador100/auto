@@ -1,0 +1,29 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd /var/www/auto || git clone https://github.com/${{ github.repository }} /var/www/auto
+            cd /var/www/auto
+            git pull origin main
+            cd backend
+            npm install --production
+            pm2 restart auto-backend || pm2 start server.js --name auto-backend
+            pm2 save
